@@ -1,0 +1,3 @@
+/home/kostja-linux/Рабочий стол/rgr4/cmake-build-debug/CMakeFiles/rgr4.dir
+/home/kostja-linux/Рабочий стол/rgr4/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/kostja-linux/Рабочий стол/rgr4/cmake-build-debug/CMakeFiles/rebuild_cache.dir
