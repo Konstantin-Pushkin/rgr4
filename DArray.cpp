@@ -3,220 +3,148 @@
 #include <stdexcept>
 #include <iostream>
 
-void DArray::resize(const unsigned newCap) {
-    const auto newData = new int[newCap];
-    for (size_t i = 0; i < size; i++) {
-        newData[i] = data[i];
-    }
-
-    delete[]data;
-    data = newData;
-    capacity = newCap;
+DArray::DArray() : head(nullptr), tail(nullptr), size(0) {
 }
 
-DArray::DArray(const unsigned newCapacity) : data(new int[newCapacity]), size(0), capacity(newCapacity) {
-}
-
-DArray::DArray(const DArray &other) : data(new int[other.capacity]), size(other.size), capacity(other.capacity) {
-    for (size_t i = 0; i < size; i++) {
-        data[i] = other.data[i];
-    }
+DArray::DArray(const DArray &other) : head(nullptr), tail(nullptr), size(0) {
+    copyFrom(other);
 }
 
 DArray::~DArray() {
-    delete[] data;
+    clear();
 }
 
 DArray DArray::operator+(const DArray &right) const {
-    if (size != right.size) {
-        throw std::invalid_argument("Vector size mismatch");
-    }
-
-    DArray res(size);
-    res.size = size;
-    for (size_t i = 0; i < size; i++)
-        res.data[i] = data[i] + right.data[i];
-
-    return res;
+    DArray result = *this;
+    result.applyBinaryAssignment(right, [](int &a, int b) { a += b; });
+    return result;
 }
 
 DArray &DArray::operator+=(const DArray &right) {
-    if (size != right.size) {
-        throw std::invalid_argument("Vector size mismatch");
-    }
-
-    for (size_t i = 0; i < size; i++)
-        data[i] += right.data[i];
-
+    applyBinaryAssignment(right, [](int &a, int b) { a += b; });
     return *this;
 }
 
 DArray DArray::operator-(const DArray &right) const {
-    if (size != right.size) {
-        throw std::invalid_argument("Vector size mismatch");
-    }
-
-    DArray res(size);
-    res.size = size;
-    for (size_t i = 0; i < size; i++)
-        res.data[i] = data[i] - right.data[i];
-
-    return res;
+    DArray result = *this;
+    result.applyBinaryAssignment(right, [](int &a, int b) { a -= b; });
+    return result;
 }
 
 DArray &DArray::operator-=(const DArray &right) {
-    if (size != right.size) {
-        throw std::invalid_argument("Vector size mismatch");
-    }
-
-    for (size_t i = 0; i < size; i++)
-        data[i] -= right.data[i];
-
+    applyBinaryAssignment(right, [](int &a, int b) { a -= b; });
     return *this;
 }
 
 DArray DArray::operator*(const DArray &right) const {
-    if (size != right.size) {
-        throw std::invalid_argument("Vector size mismatch");
-    }
-
-    DArray res(size);
-    res.size = size;
-    for (size_t i = 0; i < size; i++)
-        res.data[i] = data[i] * right.data[i];
-
-    return res;
+    DArray result = *this;
+    result.applyBinaryAssignment(right, [](int &a, int b) { a *= b; });
+    return result;
 }
 
 DArray &DArray::operator*=(const DArray &right) {
-    if (size != right.size) {
-        throw std::invalid_argument("Vector size mismatch");
-    }
-
-    for (size_t i = 0; i < size; i++)
-        data[i] *= right.data[i];
-
+    applyBinaryAssignment(right, [](int &a, int b) { a *= b; });
     return *this;
 }
 
 DArray DArray::operator/(const DArray &right) const {
-    if (size != right.size) {
-        throw std::invalid_argument("Vector size mismatch");
-    }
-
-    DArray res(size);
-    res.size = size;
-    for (size_t i = 0; i < size; i++) {
-        if (right.data[i] == 0) {
-            throw std::invalid_argument("Division by zero");
-        }
-
-        res.data[i] = data[i] / right.data[i];
-    }
-
-    return res;
+    checkDivisionByZero(right);
+    DArray result = *this;
+    result.applyBinaryAssignment(right, [](int &a, int b) { a /= b; });
+    return result;
 }
 
 DArray &DArray::operator/=(const DArray &right) {
-    if (size != right.size) {
-        throw std::invalid_argument("Vector size mismatch");
-    }
-
-    for (size_t i = 0; i < size; i++) {
-        if (right.data[i] == 0) {
-            throw std::invalid_argument("Division by zero");
-        }
-
-        data[i] /= right.data[i];
-    }
-
+    checkDivisionByZero(right);
+    applyBinaryAssignment(right, [](int &a, int b) { a /= b; });
     return *this;
 }
 
 DArray DArray::operator%(const DArray &right) const {
-    if (size != right.size) {
-        throw std::invalid_argument("Vector size mismatch");
-    }
-
-    DArray res(size);
-    res.size = size;
-    for (size_t i = 0; i < size; i++) {
-        if (right.data[i] == 0) {
-            throw std::invalid_argument("Division by zero");
-        }
-
-        res.data[i] = data[i] % right.data[i];
-    }
-
-    return res;
+    checkDivisionByZero(right);
+    DArray result = *this;
+    result.applyBinaryAssignment(right, [](int &a, int b) { a %= b; });
+    return result;
 }
 
 DArray &DArray::operator%=(const DArray &right) {
-    if (size != right.size)
-        throw std::invalid_argument("Vector size mismatch");
-
-    for (size_t i = 0; i < size; i++) {
-        if (right.data[i] == 0)
-            throw std::invalid_argument("Division by zero");
-
-        data[i] %= right.data[i];
-    }
-
+    checkDivisionByZero(right);
+    applyBinaryAssignment(right, [](int &a, int b) { a %= b; });
     return *this;
 }
 
 // скалярное произведение
 int DArray::dot(const DArray &right) const {
-    const DArray multiplied = *this * right; // поэлементное умножение векторов
+    checkVectorSize(*this, right);
 
     int result = 0;
-    for (size_t i = 0; i < size; i++) {
-        result += multiplied.data[i];
+    Node *leftCurrent = head;
+    Node *rightCurrent = right.head;
+
+    while (leftCurrent) {
+        result += leftCurrent->value * rightCurrent->value;
+        leftCurrent = leftCurrent->next;
+        rightCurrent = rightCurrent->next;
     }
+
     return result;
 }
 
 int &DArray::operator[](unsigned index) {
     if (index >= size)
         throw std::out_of_range("Index out of range");
-    return data[index];
+
+    Node *current = head;
+    for (unsigned i = 0; i < index; i++)
+        current = current->next;
+
+    return current->value;
 }
 
 const int &DArray::operator[](unsigned index) const {
     if (index >= size)
         throw std::out_of_range("Index out of range");
-    return data[index];
+
+    Node *current = head;
+    for (unsigned i = 0; i < index; i++)
+        current = current->next;
+
+    return current->value;
 }
 
 DArray &DArray::operator=(const DArray &right) {
-    if (this == &right)
-        return *this;
-
-    delete[] data;
-
-    size = right.size;
-    capacity = right.capacity;
-    data = new int[capacity];
-    for (size_t i = 0; i < size; i++)
-        data[i] = right.data[i];
+    if (this != &right) {
+        clear();
+        copyFrom(right);
+    }
 
     return *this;
 }
 
 void DArray::push_back(int value) {
-    if (size >= capacity) {
-        resize(capacity * 2);
+    auto newNode = new Node(value);
+    if (!tail) {
+        head = newNode;
+    } else {
+        tail->next = newNode;
+        newNode->prev = tail;
     }
-    data[size++] = value;
+    tail = newNode;
+    ++size;
 }
 
 bool DArray::operator==(const DArray &right) const {
-    if (size != right.size)
-        return false;
+    checkVectorSize(*this, right);
 
-    for (size_t i = 0; i < size; i++) {
-        if (data[i] != right.data[i])
+    Node *leftCurrent = head;
+    Node *rightCurrent = right.head;
+
+    while (leftCurrent) {
+        if (leftCurrent->value != rightCurrent->value)
             return false;
+
+        leftCurrent = leftCurrent->next;
+        rightCurrent = rightCurrent->next;
     }
 
     return true;
@@ -227,83 +155,189 @@ bool DArray::operator!=(const DArray &right) const {
 }
 
 DArray DArray::operator&(const DArray &right) const {
-    DArray res(size + right.size);
+    DArray res;
 
-    for (size_t i = 0; i < size; i++) {
-        res.data[i] = data[i];
+    Node *leftCurrent = head;
+    while (leftCurrent) {
+        res.push_back(leftCurrent->value);
+        leftCurrent = leftCurrent->next;
     }
 
-    for (size_t i = 0; i < right.size; i++) {
-        res.data[size + i] = right.data[i];
+    Node *rightCurrent = right.head;
+    while (rightCurrent) {
+        res.push_back(rightCurrent->value);
+        rightCurrent = rightCurrent->next;
     }
-
-    res.size = size + right.size;
 
     return res;
 }
 
 DArray &DArray::operator&=(const DArray &right) {
-    const unsigned newSize = size + right.size;
+    Node *rightCurrent = right.head;
 
-    if (newSize > capacity) {
-        const auto newData = new int[newSize];
-
-        for (size_t i = 0; i < size; i++) {
-            newData[i] = data[i];
-        }
-
-        for (size_t i = 0; i < right.size; i++) {
-            newData[size + i] = right.data[i];
-        }
-
-        delete[] data;
-        data = newData;
-        capacity = newSize;
-    } else {
-        for (size_t i = 0; i < right.size; i++) {
-            data[size + i] = right.data[i];
-        }
-    }
-
-    size = newSize;
-    return *this;
-}
-
-DArray &DArray::operator<<(unsigned shift) {
-    if (shift >= size) {
-        for (size_t i = 0; i < size; i++)
-            data[i] = 0;
-    } else {
-        for (size_t i = 0; i < size - shift; i++)
-            data[i] = data[i + shift];
-        for (size_t i = size - shift; i < size; i++)
-            data[i] = 0;
+    while (rightCurrent) {
+        push_back(rightCurrent->value);
+        rightCurrent = rightCurrent->next;
     }
 
     return *this;
 }
 
-DArray &DArray::operator>>(unsigned shift) {
-    if (shift >= size) {
-        for (size_t i = 0; i < size; i++)
-            data[i] = 0;
-    } else {
-        for (size_t i = size - 1; i >= shift; i--)
-            data[i] = data[i - shift];
+DArray DArray::operator<<(unsigned shift) const {
+    DArray newArray;
 
-        for (size_t i = 0; i < shift; i++)
-            data[i] = 0;
+    if (shift >= size) {
+        for (size_t i = 0; i < size; ++i)
+            newArray.push_back(0);
+    } else {
+        Node *current = head;
+
+        for (size_t i = shift; i < size; ++i) {
+            newArray.push_back(current->value);
+            current = current->next;
+        }
+
+        for (size_t i = newArray.size; i < size; ++i)
+            newArray.push_back(0);
+    }
+
+    return newArray;
+}
+
+DArray DArray::operator>>(unsigned shift) const {
+    DArray newArray;
+
+    if (shift >= size) {
+        for (size_t i = 0; i < size; ++i)
+            newArray.push_back(0);
+    } else {
+        for (size_t i = 0; i < shift; ++i)
+            newArray.push_back(0);
+
+        Node *current = head;
+        for (size_t i = 0; i < size - shift; ++i) {
+            newArray.push_back(current->value);
+            current = current->next;
+        }
+    }
+
+    return newArray;
+}
+
+DArray &DArray::operator<<=(unsigned shift) {
+    if (shift >= size) {
+        Node *current = head;
+        while (current != nullptr) {
+            current->value = 0;
+            current = current->next;
+        }
+    } else {
+        Node *newHead = head;
+
+        for (size_t i = 0; i < shift; ++i) {
+            if (newHead != nullptr)
+                newHead = newHead->next;
+        }
+
+        Node *oldHead = head;
+
+        while (newHead != nullptr) {
+            oldHead->value = newHead->value;
+            oldHead = oldHead->next;
+            newHead = newHead->next;
+        }
+
+        while (oldHead != nullptr) {
+            oldHead->value = 0;
+            oldHead = oldHead->next;
+        }
     }
 
     return *this;
+}
+
+DArray &DArray::operator>>=(unsigned shift) {
+    if (shift >= size) {
+        Node *current = head;
+        while (current) {
+            current->value = 0;
+            current = current->next;
+        }
+    } else {
+        Node *current = tail;
+        for (unsigned i = 0; i < size - shift; i++) {
+            current->value = current->prev ? current->prev->value : 0;
+            current = current->prev;
+        }
+
+        current = head;
+        for (unsigned i = 0; i < shift; i++) {
+            if (current) {
+                current->value = 0;
+                current = current->next;
+            }
+        }
+    }
+
+    return *this;
+}
+
+DArray::Iterator::Iterator(Node *node) : current(node) {
+}
+
+int &DArray::Iterator::operator*() const {
+    return current->value;
+}
+
+DArray::Iterator &DArray::Iterator::operator++() {
+    if (current)
+        current = current->next;
+
+    return *this;
+}
+
+DArray::Iterator DArray::Iterator::operator++(int) {
+    Iterator temp = *this;
+    ++(*this);
+    return temp;
+}
+
+DArray::Iterator &DArray::Iterator::operator--() {
+    if (current)
+        current = current->prev;
+
+    return *this;
+}
+
+DArray::Iterator DArray::Iterator::operator--(int) {
+    Iterator temp = *this;
+    --(*this);
+    return temp;
+}
+
+bool DArray::Iterator::operator==(const Iterator &other) const {
+    return current == other.current;
+}
+
+bool DArray::Iterator::operator!=(const Iterator &other) const {
+    return current != other.current;
+}
+
+DArray::Iterator DArray::begin() const {
+    return Iterator(head);
+}
+
+DArray::Iterator DArray::end() {
+    return Iterator(nullptr);
 }
 
 std::ostream &operator<<(std::ostream &os, const DArray &arr) {
     os << "<< ";
-    for (size_t i = 0; i < arr.size; i++) {
-        os << arr.data[i];
-        if (i < arr.size - 1)
+
+    for (auto it = arr.begin(); it != DArray::end(); ++it) {
+        if (it != arr.begin())
             os << ", ";
+        os << *it;
     }
     os << " >>";
     return os;
@@ -312,51 +346,70 @@ std::ostream &operator<<(std::ostream &os, const DArray &arr) {
 std::istream &operator>>(std::istream &is, DArray &arr) {
     char ch;
 
-    is >> ch;
-    if (ch != '<') throw std::invalid_argument("Invalid format: Expected '<'");
-    is >> ch;
-    if (ch != '<') throw std::invalid_argument("Invalid format: Expected '<<'");
+    if (!(is >> ch) || ch != '<' || !(is >> ch) || ch != '<')
+        throw std::invalid_argument("Expected '<<' at the beginning");
 
-    int value; // Переменная для временного хранения введенного значения
-
-    while (true) {
-        is >> value;
+    int value;
+    while (is >> value) {
         arr.push_back(value);
-
-        is >> ch;
-        if (ch != ',') {
-            is.putback(ch); // Возвращаем символ обратно в поток
+        if (is >> ch && ch == '>')
             break;
-        }
+        else if (ch != ',')
+            throw std::invalid_argument("Expected ',' or '>>' after values");
     }
 
-    is >> ch;
-    if (ch != '>') throw std::invalid_argument("Invalid format: Expected '>'");
-
-    is >> ch;
-    if (ch != '>') throw std::invalid_argument("Invalid format: Expected '>>'");
+    if (ch != '>' || !(is >> ch) || ch != '>')
+        throw std::invalid_argument("Expected '>>' at the end");
 
     return is;
 }
 
+unsigned DArray::getSize() const {
+    return size;
+}
+
+void DArray::checkVectorSize(const DArray &left, const DArray &right) {
+    if (left.getSize() != right.size)
+        throw std::invalid_argument("Vector size mismatch");
+}
+
+void DArray::checkDivisionByZero(const DArray &right) {
+    for (Node *current = right.head; current; current = current->next) {
+        if (current->value == 0)
+            throw std::invalid_argument("Division by zero");
+    }
+}
+
+void DArray::copyFrom(const DArray &other) {
+    for (Node *current = other.head; current != nullptr; current = current->next)
+        push_back(current->value);
+}
+
+void DArray::clear() {
+    while (head) {
+        Node *temp = head;
+        head = head->next;
+        delete temp;
+    }
+    tail = nullptr;
+    size = 0;
+}
+
+DArray &DArray::applyBinaryAssignment(const DArray &right, void (*op)(int &, int)) {
+    checkVectorSize(*this, right);
+
+    Node *leftCurrent = head;
+    Node *rightCurrent = right.head;
+
+    while (leftCurrent) {
+        op(leftCurrent->value, rightCurrent->value);
+        leftCurrent = leftCurrent->next;
+        rightCurrent = rightCurrent->next;
+    }
+
+    return *this;
+}
+
 int main() {
-    DArray dar(3);
-    dar.push_back(150);
-    dar.push_back(150);
-    dar.push_back(150);
-
-    DArray dar2(3);
-    dar2.push_back(15);
-    dar2.push_back(15);
-    dar2.push_back(15);
-
-    DArray dar3(5);
-    std::cin >> dar3;
-
-    std::cout << dar3 << std::endl << std::endl;
-
-    dar3 << (2);
-    std::cout << dar3 << std::endl;
-
     return EXIT_SUCCESS;
 }
