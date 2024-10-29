@@ -27,6 +27,10 @@ class DArray {
 
     void clear();
 
+    DArray &applyBinaryAssignment(const DArray &right, void (*op)(int &, int));
+
+    DArray applyBinaryOperation(const DArray &right, int (*op)(int, int)) const;
+
 public:
     DArray();
 
@@ -106,8 +110,6 @@ public:
     void push_back(int value);
 
     [[nodiscard]] unsigned getSize() const;
-
-    DArray &applyBinaryAssignment(const DArray &right, void (*op)(int &, int));
 };
 
 #endif //DARRAY_HPP

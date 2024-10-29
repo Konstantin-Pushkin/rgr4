@@ -15,9 +15,7 @@ DArray::~DArray() {
 }
 
 DArray DArray::operator+(const DArray &right) const {
-    DArray result = *this;
-    result.applyBinaryAssignment(right, [](int &a, int b) { a += b; });
-    return result;
+    return applyBinaryOperation(right, [](int a, int b) { return a + b; });
 }
 
 DArray &DArray::operator+=(const DArray &right) {
@@ -26,9 +24,7 @@ DArray &DArray::operator+=(const DArray &right) {
 }
 
 DArray DArray::operator-(const DArray &right) const {
-    DArray result = *this;
-    result.applyBinaryAssignment(right, [](int &a, int b) { a -= b; });
-    return result;
+    return applyBinaryOperation(right, [](int a, int b) { return a - b; });
 }
 
 DArray &DArray::operator-=(const DArray &right) {
@@ -37,9 +33,7 @@ DArray &DArray::operator-=(const DArray &right) {
 }
 
 DArray DArray::operator*(const DArray &right) const {
-    DArray result = *this;
-    result.applyBinaryAssignment(right, [](int &a, int b) { a *= b; });
-    return result;
+    return applyBinaryOperation(right, [](int a, int b) { return a * b; });
 }
 
 DArray &DArray::operator*=(const DArray &right) {
@@ -49,9 +43,7 @@ DArray &DArray::operator*=(const DArray &right) {
 
 DArray DArray::operator/(const DArray &right) const {
     checkDivisionByZero(right);
-    DArray result = *this;
-    result.applyBinaryAssignment(right, [](int &a, int b) { a /= b; });
-    return result;
+    return applyBinaryOperation(right, [](int a, int b) { return a / b; });
 }
 
 DArray &DArray::operator/=(const DArray &right) {
@@ -62,9 +54,7 @@ DArray &DArray::operator/=(const DArray &right) {
 
 DArray DArray::operator%(const DArray &right) const {
     checkDivisionByZero(right);
-    DArray result = *this;
-    result.applyBinaryAssignment(right, [](int &a, int b) { a %= b; });
-    return result;
+    return applyBinaryOperation(right, [](int a, int b) { return a % b; });
 }
 
 DArray &DArray::operator%=(const DArray &right) {
@@ -408,6 +398,22 @@ DArray &DArray::applyBinaryAssignment(const DArray &right, void (*op)(int &, int
     }
 
     return *this;
+}
+
+DArray DArray::applyBinaryOperation(const DArray &right, int (*op)(int, int)) const {
+    checkVectorSize(*this, right);
+    DArray result;
+
+    Node *leftCurrent = head;
+    Node *rightCurrent = right.head;
+
+    while (leftCurrent) {
+        result.push_back(op(leftCurrent->value, rightCurrent->value));
+        leftCurrent = leftCurrent->next;
+        rightCurrent = rightCurrent->next;
+    }
+
+    return result;
 }
 
 int main() {
