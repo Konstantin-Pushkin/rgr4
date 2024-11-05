@@ -85,7 +85,7 @@ int &DArray::operator[](unsigned index) {
         throw std::out_of_range("Index out of range");
 
     Node *current = head;
-    for (unsigned i = 0; i < index; i++)
+    for (size_t i = 0; i < index; i++)
         current = current->next;
 
     return current->value;
@@ -96,7 +96,7 @@ const int &DArray::operator[](unsigned index) const {
         throw std::out_of_range("Index out of range");
 
     Node *current = head;
-    for (unsigned i = 0; i < index; i++)
+    for (size_t i = 0; i < index; i++)
         current = current->next;
 
     return current->value;
@@ -255,13 +255,13 @@ DArray &DArray::operator>>=(unsigned shift) {
         }
     } else {
         Node *current = tail;
-        for (unsigned i = 0; i < size - shift; i++) {
+        for (size_t i = 0; i < size - shift; i++) {
             current->value = current->prev ? current->prev->value : 0;
             current = current->prev;
         }
 
         current = head;
-        for (unsigned i = 0; i < shift; i++) {
+        for (size_t i = 0; i < shift; i++) {
             if (current) {
                 current->value = 0;
                 current = current->next;
