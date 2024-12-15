@@ -1,9 +1,10 @@
 #include "DArray.hpp"
+#include "lexicalAnalyzer.hpp"
 #include <stdexcept>
 #include <iostream>
 
 void DArray::checkVectorSize(const DArray &left, const DArray &right) {
-    if (left.getSize() != right.size)
+    if (left.size != right.size) // исправление: left.getSize() заменено на left.size
         throw std::invalid_argument("Несоответствие размера вектора");
 }
 
@@ -153,7 +154,8 @@ DArray &DArray::operator=(const DArray &right) {
 }
 
 bool DArray::operator==(const DArray &right) const {
-    checkVectorSize(*this, right);
+    if (size != right.size)
+        return false;
     Node *leftCurrent = head;
     Node *rightCurrent = right.head;
     while (leftCurrent) {
@@ -195,27 +197,31 @@ DArray &DArray::operator&=(const DArray &right) {
 
 DArray DArray::operator<<(unsigned shift) const {
     DArray newArray;
+
     if (shift >= size) {
         for (size_t i = 0; i < size; ++i)
             newArray.push_back(0);
     } else {
         Node *current = head;
-        for (size_t i = shift; i < size; ++i) {
+        for (size_t i = 0; i < shift; ++i)
+            current = current->next;
+        for (size_t i = 0; i < size - shift; ++i) {
             newArray.push_back(current->value);
             current = current->next;
         }
-        for (size_t i = newArray.size; i < size; ++i)
+        for (size_t i = size - shift; i < size; ++i)
             newArray.push_back(0);
     }
+
     return newArray;
 }
 
 DArray DArray::operator>>(unsigned shift) const {
     DArray newArray;
-    if (shift >= size) {
+    if (shift >= size)
         for (size_t i = 0; i < size; ++i)
             newArray.push_back(0);
-    } else {
+    else {
         for (size_t i = 0; i < shift; ++i)
             newArray.push_back(0);
         Node *current = head;
@@ -264,18 +270,18 @@ DArray &DArray::operator>>=(unsigned shift) {
         }
     } else {
         Node *current = tail;
-        for (size_t i = 0; i < size - shift; i++) {
+        for (size_t i = size - 1; i >= shift; --i) {
             current->value = current->prev ? current->prev->value : 0;
             current = current->prev;
         }
+
         current = head;
-        for (size_t i = 0; i < shift; i++) {
-            if (current) {
-                current->value = 0;
-                current = current->next;
-            }
+        for (size_t i = 0; i < shift; ++i) {
+            current->value = 0;
+            current = current->next;
         }
     }
+
     return *this;
 }
 
@@ -297,7 +303,6 @@ DArray::Iterator DArray::Iterator::operator++(int) {
     ++(*this);
     return temp;
 }
-
 
 DArray::Iterator &DArray::Iterator::operator--() {
     if (current)
@@ -339,19 +344,20 @@ std::ostream &operator<<(std::ostream &os, const DArray &arr) {
 }
 
 std::istream &operator>>(std::istream &is, DArray &arr) {
+    arr.clear();
     char ch;
     if (!(is >> ch) || ch != '<' || !(is >> ch) || ch != '<')
-        throw std::invalid_argument("Ожидается '<<' в начале");
+        throw std::invalid_argument("ожидается '<<' в начале");
     int value;
     while (is >> value) {
         arr.push_back(value);
         if (is >> ch && ch == '>')
             break;
         else if (ch != ',')
-            throw std::invalid_argument("Ожидается ',' или '>>' после значений");
+            throw std::invalid_argument("ожидается ',' или '>>' после значений");
     }
     if (ch != '>' || !(is >> ch) || ch != '>')
-        throw std::invalid_argument("Ожидается '>>' в конце");
+        throw std::invalid_argument("ожидается '>>' в конце");
     return is;
 }
 
@@ -369,4 +375,40 @@ void DArray::push_back(int value) {
 
 unsigned DArray::getSize() const {
     return size;
+}
+
+int main() {
+    // DArray d;
+    // d.push_back(1);
+    // d.push_back(2);
+    // d.push_back(3);
+    // DArray d3 = d >> 2;
+    // std::cout << d3 << std::endl;
+    //
+    // DArray d2;
+    // d2.push_back(1);
+    // d2.push_back(2);
+    // d2.push_back(3);
+    // d2 >>= 2;
+    // std::cout << d2 << std::endl;
+    //
+    // DArray d4;
+    // d4.push_back(1);
+    // d4.push_back(2);
+    // d4.push_back(3);
+    // DArray d5 = d >> 2;
+    // std::cout << d5 << std::endl;
+    //
+    // DArray d6;
+    // d6.push_back(1);
+    // d6.push_back(2);
+    // d6.push_back(3);
+    // d6 >>= 2;
+    // std::cout << d6 << std::endl;
+
+    auto file = "../tests.txt";
+    initializeTable();
+    parse(file);
+
+    return EXIT_SUCCESS;
 }
