@@ -17,8 +17,8 @@ enum class LexemeClass {
 
 // список символьных лексем
 enum class SymbolicTokenClass {
-    LETTER, DIGIT, SIGN, ARITHMETIC_OPERATION, COMPARISON_OPERATION, SPACE_OR_TAB, END_OF_LINE, END_OF_FILE, SEMICOLON,
-    ERROR
+    LETTER, DIGIT, SIGN, ARITHMETIC_OPERATION, COMPARISON_OPERATION, SPACE_OR_TAB, END_OF_LINE, SEMICOLON,
+    ERROR, END_OF_FILE
 };
 
 // состояния
@@ -50,15 +50,41 @@ struct Lexeme {
     unsigned lineNumber;
 };
 
+struct ConstantEntry {
+    unsigned value;  // значение константы
+    unsigned short registerIndex;  // индекс в таблице констант
+};
+
+std::vector<ConstantEntry> constantTable;
+
 unsigned numberRegister = 0; // регистр числа
+unsigned short classRegister; // хранит класс лексемы
 short signRegister = 1; // регистр знака
-char relationRegister = '\0'; // регистр символа отношения
+char relationRegister = '\0'; // регистр отношения
 LexemeClass lexemeClass; // класс текущей лексемы
 std::string variableRegister; // регистр имени переменной
 unsigned valueRegister = 0; // регистр числового значения
 unsigned lineNumber = 1; // текущий номер строки программы
 bool constantFlag = false; // флаг, указывающий на константу
 short detectionRegister; // регистр обнаружения
+
+void addConstant() {
+    if (!constantFlag)
+        return;
+
+    bool constantExists = false;
+    for (const auto& entry : constantTable)
+        if (entry.value == numberRegister) {
+            constantExists = true;
+            break;
+        }
+
+    if (!constantExists) {
+        unsigned short registerIndex = constantTable.size();
+        constantTable.push_back({numberRegister, registerIndex});
+        detectionRegister = static_cast<short>(registerIndex);
+    }
+}
 
 // std::string lexemeClassToString(LexemeClass lexemeClass) {
 //     switch (lexemeClass) {
@@ -154,6 +180,12 @@ extern std::map<char, VariantType> initialMap;
 std::vector<std::string> variables;
 
 void addVariable() {
+    static const std::array<std::string, 7> keyWords = {"push", "pop", "jmp", {"ji"}, {"read"}, {"write"}, {"end"}};
+    for (const auto &keyWord : keyWords)
+        if (variableRegister == keyWord) {
+            std::cerr << "Имя переменной совпадает с одним из ключевых слов" << std::endl;
+        }
+
     std::string valueString = std::to_string(valueRegister);
     auto it = variables.begin();
     while (it != variables.end()) {
@@ -225,6 +257,24 @@ States A2d() {
     return States::states_A2;
 }
 
+States A2e() {
+    if (relationRegister == '!')
+        return Error1();
+
+    createLexeme();
+    lineNumber++;
+
+    return States::states_A2;
+}
+
+States A2f() {
+    classRegister = static_cast<unsigned short>(LexemeClass::ERROR);
+    createLexeme();
+    lineNumber++;
+
+    return States::states_A2;
+}
+
 States B1a() {
     char currentSymbol = static_cast<char>(std::tolower(globalSymbol.value));
 
@@ -242,6 +292,119 @@ States B1b() {
     detectionRegister++;
 
     return States::states_B1;
+}
+
+States C1a() {
+    classRegister = static_cast<unsigned short>(SymbolicTokenClass::ARITHMETIC_OPERATION);
+    numberRegister = globalSymbol.value;
+    createLexeme();
+
+    return States::states_C1;
+}
+
+States C1b() {
+    classRegister = static_cast<unsigned short>(LexemeClass::END);
+    createLexeme();
+
+    return States::states_C1;
+}
+
+States C1c() {
+    classRegister = static_cast<unsigned short>(LexemeClass::READ);
+    createLexeme();
+
+    return States::states_C1;
+}
+
+States C1d() {
+    classRegister = static_cast<unsigned short>(LexemeClass::WRITE);
+    createLexeme();
+
+    return States::states_C1;
+}
+
+States C1e() {
+    addConstant();
+    createLexeme();
+
+    return States::states_C1;
+}
+
+States C1f() {
+    addVariable();
+    createLexeme();
+
+    return States::states_C1;
+}
+
+States C1g() {
+    if (relationRegister == '!')
+        return Error1();
+    createLexeme();
+
+    return States::states_C1;
+}
+
+States C1h() {
+    if (relationRegister == '!')
+        return Error1();
+
+    char currentSymbol = static_cast<char>(globalSymbol.value);
+    short result = processRelation(relationRegister, currentSymbol);
+    if (result == 0)
+        return Error1();
+
+    relationRegister = static_cast<char>(result);
+    createLexeme();
+
+    return States::states_C1;
+}
+
+States D1a() {
+    if (relationRegister == '=')
+        classRegister = static_cast<unsigned short>(LexemeClass::RELATION);
+    else if (relationRegister == '!')
+        classRegister = static_cast<unsigned short>(LexemeClass::RELATION);
+    else if (relationRegister == '<')
+        classRegister = static_cast<unsigned short>(LexemeClass::RELATION);
+    else if (relationRegister == '>')
+        classRegister = static_cast<unsigned short>(LexemeClass::RELATION);
+    else
+        classRegister = static_cast<unsigned short>(LexemeClass::ERROR);
+
+
+    createLexeme();
+
+    relationRegister = '\0';
+
+    return States::states_D1;
+}
+
+States E1a() {
+    classRegister = static_cast<unsigned short>(LexemeClass::PUSH);
+    constantFlag = true;
+
+    return States::states_E1;
+}
+
+States E2a() {
+    classRegister = static_cast<unsigned short>(LexemeClass::JI);
+    constantFlag = false;
+
+    return States::states_E2;
+}
+
+States E2b() {
+    classRegister = static_cast<unsigned short>(LexemeClass::JMP);
+    constantFlag = false;
+
+    return States::states_E2;
+}
+
+States E3a() {
+    classRegister = static_cast<unsigned short>(LexemeClass::POP);
+
+    return States::states_E3;
 }
 
 States M1() {
@@ -279,7 +442,7 @@ constexpr unsigned short numberClass = 9; // количество символь
 using functionPointer = States (*)();
 using TransitionTable = std::array<std::array<functionPointer, numberClass>, numberStates>;
 
-std::vector<std::tuple<unsigned long, char, std::optional<unsigned long>, Procedure> > vectorOfAlternatives{
+std::vector<std::tuple<unsigned long, char, std::optional<unsigned long>, Procedure> > vectorOfAlternatives {
         {1, 'n', std::nullopt, B1b},
         {2, 'd', std::nullopt, C1b},
         {3, 'i', 4, nullptr, E2a},
