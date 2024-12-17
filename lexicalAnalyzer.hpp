@@ -68,8 +68,6 @@ struct Lexeme {
     LexemeClass lexemeClass;
     unsigned value;
     unsigned lineNumber;
-
-    //Lexeme(LexemeClass lexCl, unsigned val, unsigned line) : lexemeClass(lexCl), value(val), lineNumber(line) {}
 };
 
 std::vector<Lexeme> lexemes;
@@ -100,14 +98,14 @@ void addNameToTable(const std::string &name) {
     if (it != nameTable.end())
         pointerRegister = it->second;
     else {
-        unsigned newIndex = nameTable.size();
+        auto newIndex = static_cast<unsigned>(nameTable.size());
         nameTable[name] = newIndex;
         pointerRegister = newIndex;
     }
 }
 
-void addConstant(unsigned short pointerRegister, unsigned numberRegister, int constantFlag) {
-    if (constantFlag == 0)
+void addConstant(unsigned short &pointerRegister, unsigned numberRegister, bool constantFlag) {
+    if (constantFlag == false)
         return;
 
     auto it = std::ranges::find_if(constantTable,
@@ -116,7 +114,7 @@ void addConstant(unsigned short pointerRegister, unsigned numberRegister, int co
                                    });
 
     if (it == constantTable.end()) {
-        unsigned short newIndex = constantTable.size();
+        auto newIndex = static_cast<unsigned short>(constantTable.size());
         constantTable.emplace_back(numberRegister, newIndex);
         it = std::prev(constantTable.end());
     }
@@ -130,49 +128,44 @@ extern void createLexeme(LexemeClass classRegister, unsigned pointerRegister, un
 
 States handlePush(const std::string& variableName) {
     classRegister = static_cast<unsigned short>(LexemeClass::PUSH);
-
     addNameToTable(variableName);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
 
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, relationRegister, lineNumber);
-
-    return States::states_P1;
+    return States::states_A2;
 }
 
 States handlePop(const std::string& variableName) {
     classRegister = static_cast<unsigned short>(LexemeClass::POP);
-
     addNameToTable(variableName);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
 
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, relationRegister, lineNumber);
-
-    return States::states_P2;
+    return States::states_A2;
 }
 
 SymbolicToken transliterator(int ch) {
     SymbolicToken symbol{};
     symbol.value = 0;
 
-    if (isalpha(ch)) {
+    if (isalpha(ch))
         symbol.tokenClass = SymbolicTokenClass::LETTER;
-    } else if (isdigit(ch)) {
+    else if (isdigit(ch)) {
         symbol.tokenClass = SymbolicTokenClass::DIGIT;
         symbol.value = static_cast<unsigned>(ch - '0');
     } else if (ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '%') {
         symbol.tokenClass = SymbolicTokenClass::ARITHMETIC_OPERATION;
         symbol.value = static_cast<unsigned>(ch);;
-    } else if (ch == '=' || ch == '!' || ch == '<' || ch == '>') {
+    } else if (ch == '=' || ch == '!' || ch == '<' || ch == '>')
         symbol.tokenClass = SymbolicTokenClass::COMPARISON_OPERATION;
-    } else if (ch == ' ' || ch == '\t') {
+    else if (ch == ' ' || ch == '\t')
         symbol.tokenClass = SymbolicTokenClass::SPACE_OR_TAB;
-    } else if (ch == '\n') {
+    else if (ch == '\n')
         symbol.tokenClass = SymbolicTokenClass::END_OF_LINE;
-    } else if (ch == EOF) {
+    else if (ch == EOF)
         symbol.tokenClass = SymbolicTokenClass::END_OF_FILE;
-    } else if (ch == ';') {
+    else if (ch == ';')
         symbol.tokenClass = SymbolicTokenClass::SEMICOLON;
-    } else {
+    else
         symbol.tokenClass = SymbolicTokenClass::ERROR;
-    }
 
     return symbol;
 }
@@ -226,16 +219,14 @@ std::vector<std::string> variables;
 void addVariable() {
     static const std::array<std::string, 7> keyWords = {"push", "pop", "jmp", {"ji"}, {"read"}, {"write"}, {"end"}};
     for (const auto &keyWord : keyWords)
-        if (variableRegister == keyWord) {
+        if (variableRegister == keyWord)
             std::cerr << "Имя переменной совпадает с одним из ключевых слов" << std::endl;
-        }
 
     std::string valueString = std::to_string(valueRegister);
     auto it = variables.begin();
     while (it != variables.end()) {
-        if (*it == variableRegister) {
+        if (*it == variableRegister)
             break;
-        }
         ++it;
     }
 }
@@ -280,17 +271,33 @@ void createLexeme(LexemeClass classRegister, unsigned pointerRegister, unsigned 
     lexemes.emplace_back(newLexeme);
 }
 
-extern States ERROR1();
+extern States ERROR1(const unsigned &lineNumber);
+
+States A1() {
+    if (globalSymbol.tokenClass == SymbolicTokenClass::SPACE_OR_TAB)
+        return States::states_A1;
+    else
+        return ERROR1(lineNumber);
+}
 
 States A1a() {
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, relationRegister, lineNumber);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
     lineNumber++;
+
+    return States::states_A1;
 }
 
 States A1b() {
     lineNumber++;
 
     return States::states_A1;
+}
+
+States A2() {
+    if (globalSymbol.tokenClass == SymbolicTokenClass::SPACE_OR_TAB) {
+        return States::states_A2;
+    } else
+        return ERROR1(lineNumber);
 }
 
 States A2a() {
@@ -302,6 +309,8 @@ States A2a() {
 States A2b() {
     addVariable();
     lineNumber++;
+
+    return States::states_A2;
 }
 
 States A2c() {
@@ -332,7 +341,7 @@ States A2c() {
 
 States A2d() {
     addVariable();
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, relationRegister, lineNumber);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
     lineNumber++;
 
     return States::states_A2;
@@ -340,9 +349,9 @@ States A2d() {
 
 States A2e() {
     if (relationRegister == '!')
-        return ERROR1();
+        return ERROR1(lineNumber);
 
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, relationRegister, lineNumber);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
     lineNumber++;
 
     return States::states_A2;
@@ -350,21 +359,26 @@ States A2e() {
 
 States A2f() {
     classRegister = static_cast<unsigned short>(LexemeClass::ERROR);
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, relationRegister, lineNumber);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
     lineNumber++;
 
     return States::states_A2;
 }
 
 States B1a() {
-    char currentSymbol = static_cast<char>(std::tolower(globalSymbol.value));
+    char currentSymbol = static_cast<char>(std::tolower(static_cast<int>(globalSymbol.value)));
 
     auto it = initialMap.find(currentSymbol);
-    if (it != initialMap.end())
-        detectionRegister = std::get<unsigned long>(it->second);
-    else
-        return ERROR1();
-
+    if (it != initialMap.end()) {
+        std::visit([]<typename T0>(T0 &&arg) {
+            using T = std::decay_t<T0>;
+            if constexpr (std::is_arithmetic_v<T>)
+                detectionRegister = static_cast<short>(arg);
+            else
+                detectionRegister = -1;
+        }, it->second);
+    } else
+        return ERROR1(lineNumber);
 
     return States::states_B1;
 }
@@ -375,68 +389,100 @@ States B1b() {
     return States::states_B1;
 }
 
+States C1() {
+    if (globalSymbol.tokenClass == SymbolicTokenClass::SPACE_OR_TAB) {
+        return States::states_C1;
+    } else
+        return ERROR1(lineNumber);
+}
+
+
 States C1a() {
     classRegister = static_cast<unsigned short>(SymbolicTokenClass::ARITHMETIC_OPERATION);
     numberRegister = globalSymbol.value;
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, relationRegister, lineNumber);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister,
+                 static_cast<unsigned>(relationRegister),
+                 lineNumber
+    );
 
     return States::states_C1;
 }
 
 States C1b() {
     classRegister = static_cast<unsigned short>(LexemeClass::END);
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, relationRegister, lineNumber);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister,
+                 static_cast<unsigned>(relationRegister),
+                 lineNumber
+    );
 
     return States::states_C1;
 }
 
 States C1c() {
     classRegister = static_cast<unsigned short>(LexemeClass::READ);
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, relationRegister, lineNumber);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister,
+                 static_cast<unsigned>(relationRegister),
+                 lineNumber
+    );
 
     return States::states_C1;
 }
 
 States C1d() {
     classRegister = static_cast<unsigned short>(LexemeClass::WRITE);
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, relationRegister, lineNumber);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister,
+                 static_cast<unsigned>(relationRegister),
+                 lineNumber
+    );
 
     return States::states_C1;
 }
 
 States C1e() {
-    addConstant(pointerRegister, numberRegister, constantFlag);
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, relationRegister, lineNumber);
+    unsigned short localPointerRegister = static_cast<unsigned short>(pointerRegister);
+    addConstant(localPointerRegister, numberRegister, constantFlag);
+    pointerRegister = localPointerRegister;
+
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister,
+                 static_cast<unsigned>(relationRegister),
+                 lineNumber
+    );
 
     return States::states_C1;
 }
 
 States C1f() {
     addVariable();
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, relationRegister, lineNumber);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister,
+                 static_cast<unsigned>(relationRegister),
+                 lineNumber
+    );
 
     return States::states_C1;
 }
 
 States C1g() {
     if (relationRegister == '!')
-        return ERROR1();
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, relationRegister, lineNumber);
+        return ERROR1(lineNumber);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister,
+                 static_cast<unsigned>(relationRegister),
+                 lineNumber
+    );
 
     return States::states_C1;
 }
 
 States C1h() {
     if (relationRegister == '!')
-        return ERROR1();
+        return ERROR1(lineNumber);
 
     char currentSymbol = static_cast<char>(globalSymbol.value);
     short result = processRelation(relationRegister, currentSymbol);
     if (result == 0)
-        return ERROR1();
+        return ERROR1(lineNumber);
 
     relationRegister = static_cast<char>(result);
-    createLexeme();
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
 
     return States::states_C1;
 }
@@ -453,7 +499,7 @@ States D1a() {
     else
         classRegister = static_cast<unsigned short>(LexemeClass::ERROR);
 
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, relationRegister, lineNumber);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
 
     relationRegister = '\0';
 
@@ -487,6 +533,38 @@ States E3a() {
     return States::states_E3;
 }
 
+extern States H1a();
+extern States G1a();
+
+States F1() {
+    if (globalSymbol.tokenClass == SymbolicTokenClass::SPACE_OR_TAB)
+        return States::states_F1;
+    else if (globalSymbol.tokenClass == SymbolicTokenClass::LETTER)
+        return H1a();
+    else if (globalSymbol.tokenClass == SymbolicTokenClass::DIGIT)
+        return G1a();
+    else
+        return ERROR1(lineNumber);
+}
+
+States F2() {
+    if (globalSymbol.tokenClass == SymbolicTokenClass::SPACE_OR_TAB)
+        return States::states_F2;
+    else if (globalSymbol.tokenClass == SymbolicTokenClass::DIGIT)
+        return G1a();
+    else
+        return ERROR1(lineNumber);
+}
+
+States F3() {
+    if (globalSymbol.tokenClass == SymbolicTokenClass::SPACE_OR_TAB)
+        return States::states_F3;
+    else if (globalSymbol.tokenClass == SymbolicTokenClass::LETTER)
+        return H1a();
+    else
+        return ERROR1(lineNumber);
+}
+
 States G1a() {
     numberRegister = globalSymbol.value;
 
@@ -500,111 +578,137 @@ States G1b() {
 }
 
 States H1a() {
-    variableRegister = globalSymbol.value;
+    variableRegister = static_cast<char>(globalSymbol.value);
+
+    if (globalSymbol.value <= 255)
+        variableRegister = static_cast<char>(globalSymbol.value);
+    else
+        return ERROR1(lineNumber);
 
     return States::states_H1;
 }
 
 States H1b() {
-    variableRegister += globalSymbol.value;
+    variableRegister += static_cast<char>(globalSymbol.value);
 
     return States::states_H1;
 }
 
+States I1() {
+    globalComment += static_cast<char>(globalSymbol.value);
+
+    return States::states_I1;
+}
+
+States I2() {
+    globalComment += static_cast<char>(globalSymbol.value);
+
+    return States::states_I2;
+}
+
 States I1a() {
-    classRegister = std::stoi(globalComment);
+    classRegister = static_cast<unsigned short>(std::stoi(globalComment));
 
     return States::states_I1;
 }
 
 States I2a() {
-    classRegister = std::stoi(globalComment);
+    classRegister = static_cast<unsigned short>(std::stoi(globalComment));
 
     return States::states_I2;
 }
 
 States I2b() {
-    addConstant(pointerRegister, numberRegister, constantFlag);
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, relationRegister, lineNumber);
-    classRegister = std::stoi(globalComment);
+    auto localPointerRegister = static_cast<unsigned short>(pointerRegister);
+    addConstant(localPointerRegister, numberRegister, constantFlag);
+    pointerRegister = localPointerRegister;
+
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
+    classRegister = static_cast<unsigned short>(std::stoi(globalComment));
 
     return States::states_I2;
 }
 
 States I2c() {
     addVariable();
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, relationRegister, lineNumber);
-    classRegister = std::stoi(globalComment);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
+    classRegister = static_cast<unsigned short>(std::stoi(globalComment));
 
     return States::states_I2;
 }
 
 States I2d() {
     if (relationRegister == '!')
-        return ERROR1();
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, relationRegister, lineNumber);
-    classRegister = std::stoi(globalComment);
+        return ERROR1(lineNumber);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
+    classRegister = static_cast<unsigned short>(std::stoi(globalComment));
 
     return States::states_I2;
 }
 
+States J1() {
+    return States::states_J1;
+}
+
 States M1() {
-    char currentSymbol = static_cast<char>(std::tolower(globalSymbol.value));
+    char currentSymbol = static_cast<char>(std::tolower(static_cast<int>(globalSymbol.value)));
 
     if (detectionRegister == static_cast<short>(currentSymbol)) {
         for (const auto &[value, symbol, optionalValue, procedure]: vectorOfAlternatives) {
-            if (value == detectionRegister) {
+            if (static_cast<short>(value) == detectionRegister) {
                 if (procedure)
                     return procedure();
                 else
-                    return ERROR1();
+                    return ERROR1(lineNumber);
             }
         }
     } else {
         for (const auto &[value, symbol, optionalValue, procedure]: vectorOfAlternatives) {
             if (static_cast<char>(std::tolower(symbol)) == currentSymbol) {
-                detectionRegister = value;
+                detectionRegister = static_cast<short>(value);
                 if (optionalValue.has_value())
-                    detectionRegister = optionalValue.value();
+                    detectionRegister = static_cast<short>(optionalValue.value());
                 break;
             }
         }
     }
 
     if (detectionRegister == 0)
-        return ERROR1();
+        return ERROR1(lineNumber);
 
     return States::states_M1;
 }
 
 States EXIT1() {
     classRegister = END_MARKER_CODE;
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, relationRegister, lineNumber);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
     exit(EXIT_SUCCESS);
 }
 
 States EXIT2() {
     if (relationRegister == '!')
         classRegister = static_cast<unsigned short>(SymbolicTokenClass::ERROR);
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, relationRegister, lineNumber);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
     classRegister = END_MARKER_CODE;
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, relationRegister, lineNumber);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
     exit(EXIT_SUCCESS);
 }
 
 States EXIT3() {
-    addConstant(pointerRegister, numberRegister, constantFlag);
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, relationRegister, lineNumber);
+    unsigned short localPointerRegister = static_cast<unsigned short>(pointerRegister);
+    addConstant(localPointerRegister, numberRegister, constantFlag);
+    pointerRegister = localPointerRegister;
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
     classRegister = END_MARKER_CODE;
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, relationRegister, lineNumber);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
     exit(EXIT_SUCCESS);
 }
 
 States EXIT4() {
     addVariable();
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, relationRegister, lineNumber);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
     classRegister = END_MARKER_CODE;
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, relationRegister, lineNumber);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
     exit(EXIT_SUCCESS);
 }
 
@@ -621,24 +725,24 @@ constexpr unsigned short numberClass = 9; // количество символь
 using functionPointer = States (*)();
 using TransitionTable = std::array<std::array<functionPointer, numberClass>, numberStates>;
 
-std::vector<std::tuple<unsigned long, char, std::optional<unsigned long>, Procedure> > vectorOfAlternatives {
-        {1, 'n', std::nullopt, B1b},
-        {2, 'd', std::nullopt, C1b},
-        {3, 'i', 4, nullptr, E2a},
-        {4, 'm', std::nullopt, B1b},
-        {5, 'p', std::nullopt, E2b},
-        {6, 'o', 8, B1b},
-        {7, 'p', std::nullopt, E3a},
-        {8, 'u', std::nullopt, B1b},
-        {9, 's', std::nullopt, B1b},
-        {10, 'h', std::nullopt, E1a},
-        {11, 'e', std::nullopt, B1b},
-        {12, 'a', std::nullopt, B1b},
-        {13, 'd', std::nullopt, C1c},
-        {14, 'r', std::nullopt, B1b},
-        {15, 'i', std::nullopt, B1b},
-        {16, 't', std::nullopt, B1b},
-        {17, 'e', std::nullopt, C1d}
+std::vector<std::tuple<unsigned long, char, std::optional<unsigned long>, Procedure>> vectorOfAlternatives = {
+    {1, 'n', std::nullopt, B1b},
+    {2, 'd', std::nullopt, C1b},
+    {3, 'i', std::make_optional(4UL), E2a},
+    {4, 'm', std::nullopt, B1b},
+    {5, 'p', std::nullopt, E2b},
+    {6, 'o', std::make_optional(8UL), B1b},
+    {7, 'p', std::nullopt, E3a},
+    {8, 'u', std::nullopt, B1b},
+    {9, 's', std::nullopt, B1b},
+    {10, 'h', std::nullopt, E1a},
+    {11, 'e', std::nullopt, B1b},
+    {12, 'a', std::nullopt, B1b},
+    {13, 'd', std::nullopt, C1c},
+    {14, 'r', std::nullopt, B1b},
+    {15, 'i', std::nullopt, B1b},
+    {16, 't', std::nullopt, B1b},
+    {17, 'e', std::nullopt, C1d}
 };
 
 std::map<char, VariantType> initialMap{
@@ -673,7 +777,7 @@ std::map<char, VariantType> initialMap{
 TransitionTable initializeTable() {
     TransitionTable table{};
     for (auto &row: table)
-        row.fill(ERROR1);
+        row.fill([]() -> States { return ERROR1(0); });
 
     table[static_cast<std::size_t>(States::states_A1)][static_cast<std::size_t>(SymbolicTokenClass::LETTER)] = B1a;
     table[static_cast<std::size_t>(States::states_A1)][static_cast<std::size_t>(SymbolicTokenClass::ARITHMETIC_OPERATION)] = C1a;
@@ -702,7 +806,7 @@ TransitionTable initializeTable() {
     table[static_cast<std::size_t>(States::states_D1)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = C1g;
     table[static_cast<std::size_t>(States::states_D1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2e;
     table[static_cast<std::size_t>(States::states_D1)][static_cast<std::size_t>(SymbolicTokenClass::SEMICOLON)] = I2d;
-    table[static_cast<std::size_t>(States::states_D1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_FILE)] = Exit2;
+    table[static_cast<std::size_t>(States::states_D1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_FILE)] = EXIT2;
 
     table[static_cast<std::size_t>(States::states_E1)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = F1;
     table[static_cast<std::size_t>(States::states_E1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2f;
@@ -730,7 +834,7 @@ TransitionTable initializeTable() {
     table[static_cast<std::size_t>(States::states_G1)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = C1e;
     table[static_cast<std::size_t>(States::states_G1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2c;
     table[static_cast<std::size_t>(States::states_G1)][static_cast<std::size_t>(SymbolicTokenClass::SEMICOLON)] = I2b;
-    table[static_cast<std::size_t>(States::states_G1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_FILE)] = Exit3;
+    table[static_cast<std::size_t>(States::states_G1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_FILE)] = EXIT3;
 
     table[static_cast<std::size_t>(States::states_H1)][static_cast<std::size_t>(SymbolicTokenClass::LETTER)] = H1b;
     table[static_cast<std::size_t>(States::states_H1)][static_cast<std::size_t>(SymbolicTokenClass::DIGIT)] = H1b;
@@ -771,7 +875,9 @@ TransitionTable initializeTable() {
     return table;
 }
 
-void parse(const std::string &filePath, const TransitionTable &table) {
+void parse(const std::string &filePath) {
+    TransitionTable table = initializeTable();
+
     std::ifstream file(filePath);
     if (!file) {
         std::cerr << "Не удалось открыть файл: " << filePath << std::endl;
@@ -782,26 +888,38 @@ void parse(const std::string &filePath, const TransitionTable &table) {
     States currentState = States::states_A1;
 
     while (currentState != States::states_STOP) {
-        currentChar = file.get();
+        int charCode = file.get();
 
         if (file.eof())
             break;
 
+        if (charCode == EOF) {
+            globalSymbol = transliterator(EOF);
+            functionPointer nextStateFunction = table[static_cast<std::size_t>(currentState)]
+                                                [static_cast<std::size_t>(globalSymbol.tokenClass)];
+
+            if (nextStateFunction)
+                currentState = nextStateFunction();
+            break;
+        }
+
+        currentChar = static_cast<char>(charCode);
         globalSymbol = transliterator(currentChar);
 
-        functionPointer nextStateFunction = table[static_cast<std::size_t>(currentState)][static_cast<std::size_t>(
-            globalSymbol.tokenClass)];
+        functionPointer nextStateFunction = table[static_cast<std::size_t>(currentState)]
+                                            [static_cast<std::size_t>(globalSymbol.tokenClass)];
 
-        if (nextStateFunction) {
+        if (nextStateFunction)
             currentState = nextStateFunction();
-        } else {
-            std::cerr << "Ошибка перехода для символа: " << currentChar << " в состоянии " << static_cast<int>(
-                currentState) << std::endl;
+        else {
+            std::cerr << "Ошибка перехода для символа: " << currentChar
+                      << " в состоянии " << static_cast<int>(currentState) << std::endl;
             break;
         }
     }
 
     file.close();
 }
+
 
 #endif //LEXICALANALYZER_HPP

@@ -377,38 +377,66 @@ unsigned DArray::getSize() const {
     return size;
 }
 
+// int main() {
+//     // DArray d;
+//     // d.push_back(1);
+//     // d.push_back(2);
+//     // d.push_back(3);
+//     // DArray d3 = d >> 2;
+//     // std::cout << d3 << std::endl;
+//     //
+//     // DArray d2;
+//     // d2.push_back(1);
+//     // d2.push_back(2);
+//     // d2.push_back(3);
+//     // d2 >>= 2;
+//     // std::cout << d2 << std::endl;
+//     //
+//     // DArray d4;
+//     // d4.push_back(1);
+//     // d4.push_back(2);
+//     // d4.push_back(3);
+//     // DArray d5 = d >> 2;
+//     // std::cout << d5 << std::endl;
+//     //
+//     // DArray d6;
+//     // d6.push_back(1);
+//     // d6.push_back(2);
+//     // d6.push_back(3);
+//     // d6 >>= 2;
+//     // std::cout << d6 << std::endl;
+//
+//     [[maybe_unused]]auto file = "../tests.txt";
+//     transitionTable = initializeTable(); // Инициализация глобальной таблицы
+//     parse("../tests.txt", transitionTable);
+//
+//     return EXIT_SUCCESS;
+// }
+
+//TransitionTable initializeTable();
+
 int main() {
-    // DArray d;
-    // d.push_back(1);
-    // d.push_back(2);
-    // d.push_back(3);
-    // DArray d3 = d >> 2;
-    // std::cout << d3 << std::endl;
-    //
-    // DArray d2;
-    // d2.push_back(1);
-    // d2.push_back(2);
-    // d2.push_back(3);
-    // d2 >>= 2;
-    // std::cout << d2 << std::endl;
-    //
-    // DArray d4;
-    // d4.push_back(1);
-    // d4.push_back(2);
-    // d4.push_back(3);
-    // DArray d5 = d >> 2;
-    // std::cout << d5 << std::endl;
-    //
-    // DArray d6;
-    // d6.push_back(1);
-    // d6.push_back(2);
-    // d6.push_back(3);
-    // d6 >>= 2;
-    // std::cout << d6 << std::endl;
+    //TransitionTable table = initializeTable();
 
-    auto file = "../tests.txt";
-    initializeTable();
-    parse(file);
+    auto filePath = "../tests.txt";
 
-    return EXIT_SUCCESS;
+    // Запуск функции разбора файла
+    parse(filePath);
+
+    // Вывод результатов лексического анализа
+    std::cout << "\nРезультаты лексического анализа:\n";
+    for (const auto &lexeme : lexemes) {
+        std::cout << "Класс лексемы: " << static_cast<int>(lexeme.lexemeClass)
+                  << ", Значение: " << lexeme.value
+                  << ", Строка: " << lexeme.lineNumber << std::endl;
+    }
+
+    // Вывод содержимого таблицы констант
+    std::cout << "\nТаблица констант:\n";
+    for (const auto &entry : constantTable) {
+        std::cout << "Значение: " << entry.value
+                  << ", Индекс регистра: " << entry.registerIndex << std::endl;
+    }
+
+    return 0;
 }
