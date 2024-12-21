@@ -377,66 +377,54 @@ unsigned DArray::getSize() const {
     return size;
 }
 
-// int main() {
-//     // DArray d;
-//     // d.push_back(1);
-//     // d.push_back(2);
-//     // d.push_back(3);
-//     // DArray d3 = d >> 2;
-//     // std::cout << d3 << std::endl;
-//     //
-//     // DArray d2;
-//     // d2.push_back(1);
-//     // d2.push_back(2);
-//     // d2.push_back(3);
-//     // d2 >>= 2;
-//     // std::cout << d2 << std::endl;
-//     //
-//     // DArray d4;
-//     // d4.push_back(1);
-//     // d4.push_back(2);
-//     // d4.push_back(3);
-//     // DArray d5 = d >> 2;
-//     // std::cout << d5 << std::endl;
-//     //
-//     // DArray d6;
-//     // d6.push_back(1);
-//     // d6.push_back(2);
-//     // d6.push_back(3);
-//     // d6 >>= 2;
-//     // std::cout << d6 << std::endl;
-//
-//     [[maybe_unused]]auto file = "../tests.txt";
-//     transitionTable = initializeTable(); // Инициализация глобальной таблицы
-//     parse("../tests.txt", transitionTable);
-//
-//     return EXIT_SUCCESS;
-// }
-
-//TransitionTable initializeTable();
-
 int main() {
-    //TransitionTable table = initializeTable();
+    const std::string filePath = "../tests.txt";
 
-    auto filePath = "../tests.txt";
+    // Проверка существования файла
+    std::ifstream checkFile(filePath);
+    if (!checkFile.is_open()) {
+        std::cerr << "Ошибка: не удалось открыть файл " << filePath << std::endl;
+        return EXIT_FAILURE;
+    }
+    checkFile.close();
 
-    // Запуск функции разбора файла
-    parse(filePath);
+    // std::cout << "Инициализация анализатора:\n";
+    // std::cout << "Размер vectorOfAlternatives: " << vectorOfAlternatives.size() << std::endl;
+    // std::cout << "Размер initialMap: " << initialMap.size() << std::endl;
+
+    try {
+        parse(filePath);
+    } catch (const std::exception& e) {
+        std::cerr << "Ошибка при разборе файла: " << e.what() << std::endl;
+        return EXIT_FAILURE;
+    }
 
     // Вывод результатов лексического анализа
     std::cout << "\nРезультаты лексического анализа:\n";
-    for (const auto &lexeme : lexemes) {
+    std::cout << "Найдено лексем: " << lexemes.size() << std::endl;
+    for (const auto& lexeme : lexemes) {
         std::cout << "Класс лексемы: " << static_cast<int>(lexeme.lexemeClass)
-                  << ", Значение: " << lexeme.value
+                  << ", Значение: " << getLexemeValueString(lexeme.lexemeClass, lexeme.value)
                   << ", Строка: " << lexeme.lineNumber << std::endl;
     }
 
-    // Вывод содержимого таблицы констант
     std::cout << "\nТаблица констант:\n";
-    for (const auto &entry : constantTable) {
-        std::cout << "Значение: " << entry.value
-                  << ", Индекс регистра: " << entry.registerIndex << std::endl;
+    if (constantTable.empty())
+        std::cout << "Константы не найдены\n";
+    else {
+        std::cout << "Найдено констант: " << constantTable.size() << "\n";
+        for (const auto& value : constantTable)
+            std::cout << "Значение: " << value << std::endl;
     }
 
-    return 0;
+    std::cout << "\nТаблица имен:\n";
+    if (nameTable.empty())
+        std::cout << "Имена не найдены\n";
+    else {
+        std::cout << "Найдено имен: " << nameTable.size() << "\n";
+        for (const auto &[name, index] : nameTable)
+            std::cout << "Имя: " << name  << std::endl;
+    }
+
+    return EXIT_SUCCESS;
 }
