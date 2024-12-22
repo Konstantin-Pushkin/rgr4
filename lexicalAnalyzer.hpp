@@ -10,9 +10,11 @@
 #include <map>
 #include <optional>
 #include <set>
+#include <unordered_map>
 #include <variant>
 
-std::map<std::string, unsigned> nameTable;
+static std::map<std::string, unsigned> nameTable;
+static unsigned nextVariableID = 1;
 
 // значения лексем
 static constexpr short EQUAL_CODE = 1; // равно
@@ -120,16 +122,168 @@ bool constantFlag = false; // флаг, указывающий на конста
 short detectionRegister; // регистр обнаружения
 unsigned pointerRegister = 0; // регистр указателя
 
-void addNameToTable(const std::string &name) {
+std::unordered_map<LexemeClass, std::string> operationMap = {
+    {LexemeClass::ADD, "+"},
+    {LexemeClass::SUB, "-"},
+    {LexemeClass::MUL, "*"},
+    {LexemeClass::DIV, "/"},
+    {LexemeClass::MOD, "%"},
+    {LexemeClass::LESS, "<"},
+    {LexemeClass::GREATER, ">"},
+    {LexemeClass::LESS_EQUAL, "<="},
+    {LexemeClass::GREATER_EQUAL, ">="},
+    {LexemeClass::EQUAL, "=="},
+    {LexemeClass::NOT_EQUAL, "!="}
+};
+
+unsigned getVariableID(const std::string& variableName) {
+    // Если переменная уже есть в таблице, возвращаем её идентификатор
+    auto it = nameTable.find(variableName);
+    if (it != nameTable.end()) {
+        return it->second;
+    }
+
+    // Если переменной нет, добавляем её в таблицу и возвращаем новый идентификатор
+    nameTable[variableName] = nextVariableID++;
+    return nameTable[variableName];
+}
+
+std::vector<std::string> convertLexemesToProgram(const std::vector<Lexeme>& lexemes) {
+    std::vector<std::string> program;
+
+    for (const auto& lexeme : lexemes) {
+        std::string line;
+
+        switch (lexeme.lexemeClass) {
+            case LexemeClass::READ:
+                line = "read";
+                break;
+
+            case LexemeClass::POP:
+                // Для команды pop
+                if (lexeme.value < nameTable.size()) {
+                    for (const auto& entry : nameTable) {
+                        if (entry.second == lexeme.value) {
+                            line = "pop " + entry.first; // Добавляем имя переменной
+                            break;
+                        }
+                    }
+                }
+                break;
+
+            case LexemeClass::PUSH:
+                // Для команды push
+                if (lexeme.value < nameTable.size()) {
+                    // Если это переменная
+                    for (const auto& entry : nameTable) {
+                        if (entry.second == lexeme.value) {
+                            line = "push " + entry.first;  // Добавляем имя переменной
+                            break;
+                        }
+                    }
+                } else {
+                    // Если это константа
+                    line = "push " + std::to_string(lexeme.value);  // Используем значение константы
+                }
+                break;
+
+            case LexemeClass::VARIABLE:
+                // Преобразуем индекс переменной в строку
+                for (const auto& entry : nameTable) {
+                    if (entry.second == lexeme.value) {
+                        line = entry.first;  // Просто имя переменной (не отдельная строка)
+                        break;
+                    }
+                }
+                break;
+
+            case LexemeClass::CONSTANT:
+                line = std::to_string(lexeme.value);  // Константа
+                break;
+
+            case LexemeClass::END:
+                line = "end";
+                break;
+
+            case LexemeClass::WRITE:
+                line = "write";
+                break;
+
+            case LexemeClass::JMP:
+                line = "jmp " + std::to_string(lexeme.value);
+                break;
+
+            case LexemeClass::JI:
+                line = "ji " + std::to_string(lexeme.value);
+                break;
+
+            case LexemeClass::ARITHMETIC_OPERATION:
+                // Пример для арифметических операций
+                switch (lexeme.value) {
+                    case ADD_CODE: line = "add"; break;
+                    case SUB_CODE: line = "sub"; break;
+                    case MUL_CODE: line = "mul"; break;
+                    case DIV_CODE: line = "div"; break;
+                    case MOD_CODE: line = "mod"; break;
+                    default: line = "unknown operation"; break;
+                }
+                break;
+
+            case LexemeClass::RELATION:
+                // Для отношения
+                switch (lexeme.value) {
+                    case static_cast<unsigned>(LexemeClass::GREATER): line = ">"; break;
+                    case static_cast<unsigned>(LexemeClass::LESS): line = "<"; break;
+                    case static_cast<unsigned>(LexemeClass::EQUAL): line = "=="; break;
+                    // добавьте другие возможные отношения
+                    default: line = "unknown relation"; break;
+                }
+                break;
+
+            default:
+                line = "unknown lexeme";
+                break;
+        }
+
+        if (!line.empty()) {
+            program.push_back(line); // Добавляем строку в программу
+        }
+    }
+
+    return program; // Возвращаем результат
+}
+
+
+// void addNameToTable(const std::string &name) {
+//     auto it = nameTable.find(name);
+//     if (it != nameTable.end()) {
+//         pointerRegister = it->second;
+//     } else {
+//         auto newIndex = static_cast<unsigned>(nameTable.size());
+//         nameTable[name] = newIndex;
+//         pointerRegister = newIndex;
+//     }
+// }
+
+void addNameToTable(const std::string& name) {
+    // Проверяем, есть ли уже переменная с таким именем
     auto it = nameTable.find(name);
-    if (it != nameTable.end())
+
+    if (it != nameTable.end()) {
+        // Если переменная уже есть, обновляем указатель на неё (pointerRegister)
         pointerRegister = it->second;
-    else {
-        auto newIndex = static_cast<unsigned>(nameTable.size());
+    } else {
+        // Если переменной нет, добавляем её в таблицу с новым уникальным индексом
+        unsigned newIndex = static_cast<unsigned>(nameTable.size());
+
+        // Добавляем переменную в таблицу с уникальным индексом
         nameTable[name] = newIndex;
+
+        // Обновляем указатель на новый индекс
         pointerRegister = newIndex;
     }
 }
+
 
 void addConstant(unsigned short &pointerRegister, unsigned numberRegister, bool constantFlag) {
     if (constantFlag == 0)
@@ -1043,7 +1197,6 @@ void parse(const std::string &filePath) {
             break;
 
     }
-
     file.close();
 }
 

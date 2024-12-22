@@ -1,5 +1,6 @@
 #include "DArray.hpp"
 #include "lexicalAnalyzer.hpp"
+#include "interpreter.hpp"
 #include <stdexcept>
 #include <iostream>
 
@@ -377,35 +378,118 @@ unsigned DArray::getSize() const {
     return size;
 }
 
+// int main() {
+//     const std::string filePath = "../tests.txt";
+//
+//     std::ifstream checkFile(filePath);
+//     if (!checkFile.is_open()) {
+//         std::cerr << "не удалось открыть файл tests" << filePath << std::endl;
+//         return EXIT_FAILURE;
+//     }
+//     checkFile.close();
+//
+//     try {
+//         parse(filePath);
+//     } catch (const std::exception& e) {
+//         std::cerr << "ошибка при разборе файла: " << e.what() << std::endl;
+//         return EXIT_FAILURE;
+//     }
+//
+//     std::cout << "\nРезультаты лексического анализа:\n";
+//     std::cout << "Найдено лексем: " << lexemes.size() << std::endl;
+//     for (const auto& lexeme : lexemes) {
+//         std::cout << "Класс лексемы: " << static_cast<int>(lexeme.lexemeClass)
+//                   << ", значение: " << getLexemeValueString(lexeme.lexemeClass, lexeme.value)
+//                   << ", строка: " << lexeme.lineNumber << std::endl;
+//     }
+//
+//     std::cout << "\nТаблица констант:\n";
+//     if (constantTable.empty())
+//         std::cout << "Константы не найдены\n";
+//     else {
+//         std::cout << "Найдено констант: " << constantTable.size() << "\n";
+//         for (const auto& value : constantTable)
+//             std::cout << "Значение: " << value << std::endl;
+//     }
+//
+//     std::cout << "\nТаблица имен:\n";
+//     if (nameTable.empty())
+//         std::cout << "Имена не найдены\n";
+//     else {
+//         std::cout << "Найдено имен: " << nameTable.size() << "\n";
+//         for (const auto &[name, index] : nameTable)
+//             std::cout << "Имя: " << name << ", индекс: " << index << std::endl;
+//     }
+//
+//     try {
+//         Interpreter interpreter(lexemes, nameTable);
+//
+//         std::cout << "\nЗапуск программы:\n";
+//         interpreter.execute();
+//
+//         std::cout << "\nСостояние после выполнения:\n";
+//         interpreter.printStack();
+//         interpreter.printVariables();
+//     } catch (const std::exception& e) {
+//         std::cerr << "Ошибка при выполнении интерпретации: " << e.what() << std::endl;
+//         return EXIT_FAILURE;
+//     }
+//
+//     return EXIT_SUCCESS;
+// }
+
+std::vector<std::string> readFileIntoVector(const std::string &filePath) {
+    std::vector<std::string> lines;
+    std::ifstream file(filePath);
+
+    if (!file.is_open()) {
+        std::cerr << "Ошибка при открытии файла: " << filePath << std::endl;
+        return lines;
+    }
+
+    std::string line;
+    while (std::getline(file, line)) {
+        size_t commentPos = line.find(';');
+        if (commentPos != std::string::npos) {
+            line = line.substr(0, commentPos); // Обрезаем все после ';'
+        }
+
+        // Убираем возможные пробелы в конце строки
+        line = line.erase(line.find_last_not_of(" \t") + 1);
+
+        lines.push_back(line); // Добавляем строку в вектор
+    }
+
+    file.close(); // Закрытие файла
+    return lines;
+}
+
 int main() {
     const std::string filePath = "../tests.txt";
+    std::vector<std::string> program = readFileIntoVector(filePath);
 
-    // Проверка существования файла
     std::ifstream checkFile(filePath);
     if (!checkFile.is_open()) {
-        std::cerr << "Ошибка: не удалось открыть файл " << filePath << std::endl;
+        std::cerr << "не удалось открыть файл tests" << filePath << std::endl;
         return EXIT_FAILURE;
     }
     checkFile.close();
 
-    // std::cout << "Инициализация анализатора:\n";
-    // std::cout << "Размер vectorOfAlternatives: " << vectorOfAlternatives.size() << std::endl;
-    // std::cout << "Размер initialMap: " << initialMap.size() << std::endl;
-
     try {
+        Interpreter interpreter({});
+
         parse(filePath);
-    } catch (const std::exception& e) {
-        std::cerr << "Ошибка при разборе файла: " << e.what() << std::endl;
+    } catch (const std::exception &e) {
+        std::cerr << "ошибка при разборе файла: " << e.what() << std::endl;
         return EXIT_FAILURE;
     }
 
-    // Вывод результатов лексического анализа
     std::cout << "\nРезультаты лексического анализа:\n";
     std::cout << "Найдено лексем: " << lexemes.size() << std::endl;
-    for (const auto& lexeme : lexemes) {
+    for (const auto &lexeme: lexemes) {
         std::cout << "Класс лексемы: " << static_cast<int>(lexeme.lexemeClass)
-                  << ", Значение: " << getLexemeValueString(lexeme.lexemeClass, lexeme.value)
-                  << ", Строка: " << lexeme.lineNumber << std::endl;
+                << ", значение: " << getLexemeValueString(lexeme.lexemeClass, lexeme.value)
+                << ", строка: " << lexeme.lineNumber << std::endl;
     }
 
     std::cout << "\nТаблица констант:\n";
@@ -413,7 +497,7 @@ int main() {
         std::cout << "Константы не найдены\n";
     else {
         std::cout << "Найдено констант: " << constantTable.size() << "\n";
-        for (const auto& value : constantTable)
+        for (const auto &value: constantTable)
             std::cout << "Значение: " << value << std::endl;
     }
 
@@ -422,8 +506,23 @@ int main() {
         std::cout << "Имена не найдены\n";
     else {
         std::cout << "Найдено имен: " << nameTable.size() << "\n";
-        for (const auto &[name, index] : nameTable)
-            std::cout << "Имя: " << name  << std::endl;
+        for (const auto &[name, index]: nameTable) {
+            std::cout << "Имя: " << name << std::endl;
+        }
+    }
+
+    try {
+        Interpreter interpreter(program);
+
+        std::cout << "\nЗапуск программы:\n";
+        interpreter.execute();
+
+        std::cout << "\nСостояние после выполнения:\n";
+        interpreter.printStack();
+        interpreter.printVariables();
+    } catch (const std::exception &e) {
+        std::cerr << "Ошибка при выполнении интерпретации: " << e.what() << std::endl;
+        return EXIT_FAILURE;
     }
 
     return EXIT_SUCCESS;
