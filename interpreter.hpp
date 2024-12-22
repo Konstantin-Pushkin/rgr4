@@ -14,8 +14,7 @@ class Interpreter {
 
 public:
     Interpreter(const std::vector<std::string> &programLines)
-        : program(programLines), currentLine(0) {
-    }
+        : program(programLines), currentLine(0) {}
 
     void execute() {
         while (currentLine < program.size()) {
@@ -224,7 +223,7 @@ public:
         std::cout << "содержимое стека:" << std::endl;
         std::stack<int> temp = stack;
         while (!temp.empty()) {
-            std::cout << temp.top() << " ";
+            std::cout << temp.top() << ' ';
             temp.pop();
         }
         std::cout << std::endl << std::endl;

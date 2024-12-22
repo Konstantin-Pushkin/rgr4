@@ -105,7 +105,8 @@ std::vector<Lexeme> lexemes;
 struct ConstantEntry {
     unsigned value;
 
-    explicit ConstantEntry(unsigned val) : value(val) {}
+    explicit ConstantEntry(unsigned val) : value(val) {
+    }
 };
 
 std::set<unsigned> constantTable;
@@ -136,7 +137,7 @@ std::unordered_map<LexemeClass, std::string> operationMap = {
     {LexemeClass::NOT_EQUAL, "!="}
 };
 
-unsigned getVariableID(const std::string& variableName) {
+unsigned getVariableID(const std::string &variableName) {
     auto it = nameTable.find(variableName);
     if (it != nameTable.end())
         return it->second;
@@ -252,7 +253,7 @@ std::vector<std::string> convertLexemesToProgram(const std::vector<Lexeme> &lexe
     return program;
 }
 
-void addNameToTable(const std::string& name) {
+void addNameToTable(const std::string &name) {
     auto it = nameTable.find(name);
 
     if (it != nameTable.end())
@@ -464,7 +465,8 @@ States A2a() {
 }
 
 States A2b() {
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister,
+                 static_cast<unsigned>(relationRegister), lineNumber);
     lineNumber++;
 
     return States::states_A2;
@@ -472,7 +474,8 @@ States A2b() {
 
 States A2c() {
     constantTable.insert(numberRegister);
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister,
+                 static_cast<unsigned>(relationRegister), lineNumber);
     lineNumber++;
 
     return States::states_A2;
@@ -480,7 +483,8 @@ States A2c() {
 
 States A2d() {
     addVariable();
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister,
+                 static_cast<unsigned>(relationRegister), lineNumber);
     lineNumber++;
 
     return States::states_A2;
@@ -490,7 +494,8 @@ States A2e() {
     if (relationRegister == '!')
         return ERROR1(lineNumber);
 
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister,
+                 static_cast<unsigned>(relationRegister), lineNumber);
     lineNumber++;
 
     return States::states_A2;
@@ -498,7 +503,8 @@ States A2e() {
 
 States A2f() {
     classRegister = static_cast<unsigned short>(LexemeClass::ERROR);
-    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
+    createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister,
+                 static_cast<unsigned>(relationRegister), lineNumber);
     lineNumber++;
 
     return States::states_A2;
@@ -642,19 +648,19 @@ States C1h() {
     if (relationValue == 0)
         return ERROR1(lineNumber);
 
-    switch(relationValue) {
+    switch (relationValue) {
         case LESS_EQUAL_CODE:
             classRegister = static_cast<unsigned short>(LexemeClass::LESS_EQUAL);
-        break;
+            break;
         case GREATER_EQUAL_CODE:
             classRegister = static_cast<unsigned short>(LexemeClass::GREATER_EQUAL);
-        break;
+            break;
         case EQUAL_CODE:
             classRegister = static_cast<unsigned short>(LexemeClass::EQUAL);
-        break;
+            break;
         case NOT_EQUAL_CODE:
             classRegister = static_cast<unsigned short>(LexemeClass::NOT_EQUAL);
-        break;
+            break;
         default: ;
     }
 
@@ -811,8 +817,8 @@ States I2a() {
             else
                 classRegister = static_cast<unsigned short>(LexemeClass::COMMENT);
         }
-    } catch (const std::exception& e) {
-        std::cerr << "Ошибка при преобразовании строки в число: " << e.what() << std::endl;
+    } catch (const std::exception &e) {
+        std::cerr << "ошибка при преобразовании строки в число: " << e.what() << std::endl;
         classRegister = static_cast<unsigned short>(LexemeClass::COMMENT);
     }
 
@@ -920,6 +926,7 @@ States M1() {
 States EXIT1() {
     classRegister = END_MARKER_CODE;
     createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
+
     return static_cast<States>(0);
 }
 
