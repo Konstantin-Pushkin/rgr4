@@ -450,17 +450,15 @@ std::vector<std::string> readFileIntoVector(const std::string &filePath) {
     std::string line;
     while (std::getline(file, line)) {
         size_t commentPos = line.find(';');
-        if (commentPos != std::string::npos) {
-            line = line.substr(0, commentPos); // Обрезаем все после ';'
-        }
+        if (commentPos != std::string::npos)
+            line = line.substr(0, commentPos);
 
-        // Убираем возможные пробелы в конце строки
         line = line.erase(line.find_last_not_of(" \t") + 1);
 
-        lines.push_back(line); // Добавляем строку в вектор
+        lines.push_back(line);
     }
 
-    file.close(); // Закрытие файла
+    file.close();
     return lines;
 }
 
