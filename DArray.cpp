@@ -475,7 +475,6 @@ int main() {
 
     try {
         Interpreter interpreter({});
-
         parse(filePath);
     } catch (const std::exception &e) {
         std::cerr << "ошибка при разборе файла: " << e.what() << std::endl;
@@ -504,17 +503,14 @@ int main() {
         std::cout << "Имена не найдены\n";
     else {
         std::cout << "Найдено имен: " << nameTable.size() << "\n";
-        for (const auto &[name, index]: nameTable) {
+        for (const auto &[name, index]: nameTable)
             std::cout << "Имя: " << name << std::endl;
-        }
     }
 
     try {
         Interpreter interpreter(program);
-
         std::cout << "\nЗапуск программы:\n";
         interpreter.execute();
-
         std::cout << "\nСостояние после выполнения:\n";
         interpreter.printStack();
         interpreter.printVariables();
