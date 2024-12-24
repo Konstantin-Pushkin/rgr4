@@ -2,6 +2,7 @@
 #define DARRAY_HPP
 
 #include <iosfwd>
+#include <vector>
 
 // Вариант №47
 
@@ -35,6 +36,8 @@ public:
     DArray();
 
     DArray(const DArray &other);
+
+    explicit DArray(const std::vector<unsigned> &vec);
 
     ~DArray();
 

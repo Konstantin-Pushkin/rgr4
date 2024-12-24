@@ -64,6 +64,11 @@ DArray::DArray(const DArray &other) : head(nullptr), tail(nullptr), size(0) {
     copyFrom(other);
 }
 
+DArray::DArray(const std::vector<unsigned> &vec) : head(nullptr), tail(nullptr), size(0) {
+    for (const auto &value: vec)
+        push_back(static_cast<int>(value));
+}
+
 DArray::~DArray() { clear(); }
 
 DArray DArray::operator+(const DArray &right) const {
@@ -121,7 +126,7 @@ int DArray::dot(const DArray &right) const {
     Node *leftCurrent = head;
     Node *rightCurrent = right.head;
     while (leftCurrent) {
-        result += leftCurrent->value * rightCurrent->value;
+        result += static_cast<unsigned>(leftCurrent->value) * static_cast<unsigned>(rightCurrent->value);
         leftCurrent = leftCurrent->next;
         rightCurrent = rightCurrent->next;
     }
@@ -333,32 +338,54 @@ DArray::Iterator DArray::end() {
     return Iterator(nullptr);
 }
 
-std::ostream &operator<<(std::ostream &os, const DArray &arr) {
-    os << "<< ";
-    for (auto it = arr.begin(); it != DArray::end(); ++it) {
-        if (it != arr.begin())
-            os << ", ";
+std::ostream& operator<<(std::ostream& os, const DArray& arr) {
+    os << "<<";
+    bool first = true;
+    for (DArray::Iterator it = arr.begin(); it != arr.end(); ++it) {
+        if (!first) os << ", ";
         os << *it;
+        first = false;
     }
-    os << " >>";
+    os << ">>";
     return os;
 }
 
-std::istream &operator>>(std::istream &is, DArray &arr) {
+std::istream& operator>>(std::istream& is, DArray& arr) {
     arr.clear();
-    char ch;
-    if (!(is >> ch) || ch != '<' || !(is >> ch) || ch != '<')
-        throw std::invalid_argument("ожидается '<<' в начале");
+    char ch1, ch2;
+
+    is >> std::ws;
+
+    if (!(is >> ch1) || ch1 != '<' || !(is >> ch2) || ch2 != '<')
+        throw std::invalid_argument("Ожидается '<<' в начале");
+
     int value;
-    while (is >> value) {
+    bool first = true;
+
+    is >> std::ws;
+
+    while (is) {
+        if (first)
+            first = false;
+        else {
+            is >> std::ws;
+            if (is.peek() == '>') break;
+
+            char comma;
+            if (!(is >> comma) || comma != ',')
+                throw std::invalid_argument("Ожидается ',' между значениями");
+        }
+
+        is >> std::ws;
+        if (!(is >> value))
+            throw std::invalid_argument("Ожидается числовое значение");
+
         arr.push_back(value);
-        if (is >> ch && ch == '>')
-            break;
-        else if (ch != ',')
-            throw std::invalid_argument("ожидается ',' или '>>' после значений");
     }
-    if (ch != '>' || !(is >> ch) || ch != '>')
-        throw std::invalid_argument("ожидается '>>' в конце");
+
+    if (!(is >> ch1) || ch1 != '>' || !(is >> ch2) || ch2 != '>')
+        throw std::invalid_argument("Ожидается '>>' в конце");
+
     return is;
 }
 
@@ -377,66 +404,6 @@ void DArray::push_back(int value) {
 unsigned DArray::getSize() const {
     return size;
 }
-
-// int main() {
-//     const std::string filePath = "../tests.txt";
-//
-//     std::ifstream checkFile(filePath);
-//     if (!checkFile.is_open()) {
-//         std::cerr << "не удалось открыть файл tests" << filePath << std::endl;
-//         return EXIT_FAILURE;
-//     }
-//     checkFile.close();
-//
-//     try {
-//         parse(filePath);
-//     } catch (const std::exception& e) {
-//         std::cerr << "ошибка при разборе файла: " << e.what() << std::endl;
-//         return EXIT_FAILURE;
-//     }
-//
-//     std::cout << "\nРезультаты лексического анализа:\n";
-//     std::cout << "Найдено лексем: " << lexemes.size() << std::endl;
-//     for (const auto& lexeme : lexemes) {
-//         std::cout << "Класс лексемы: " << static_cast<int>(lexeme.lexemeClass)
-//                   << ", значение: " << getLexemeValueString(lexeme.lexemeClass, lexeme.value)
-//                   << ", строка: " << lexeme.lineNumber << std::endl;
-//     }
-//
-//     std::cout << "\nТаблица констант:\n";
-//     if (constantTable.empty())
-//         std::cout << "Константы не найдены\n";
-//     else {
-//         std::cout << "Найдено констант: " << constantTable.size() << "\n";
-//         for (const auto& value : constantTable)
-//             std::cout << "Значение: " << value << std::endl;
-//     }
-//
-//     std::cout << "\nТаблица имен:\n";
-//     if (nameTable.empty())
-//         std::cout << "Имена не найдены\n";
-//     else {
-//         std::cout << "Найдено имен: " << nameTable.size() << "\n";
-//         for (const auto &[name, index] : nameTable)
-//             std::cout << "Имя: " << name << ", индекс: " << index << std::endl;
-//     }
-//
-//     try {
-//         Interpreter interpreter(lexemes, nameTable);
-//
-//         std::cout << "\nЗапуск программы:\n";
-//         interpreter.execute();
-//
-//         std::cout << "\nСостояние после выполнения:\n";
-//         interpreter.printStack();
-//         interpreter.printVariables();
-//     } catch (const std::exception& e) {
-//         std::cerr << "Ошибка при выполнении интерпретации: " << e.what() << std::endl;
-//         return EXIT_FAILURE;
-//     }
-//
-//     return EXIT_SUCCESS;
-// }
 
 std::vector<std::string> readFileIntoVector(const std::string &filePath) {
     std::vector<std::string> lines;
@@ -505,6 +472,23 @@ int main() {
         std::cout << "Найдено имен: " << nameTable.size() << "\n";
         for (const auto &[name, index]: nameTable)
             std::cout << "Имя: " << name << std::endl;
+    }
+
+    std::cout << "\nТаблица векторов:\n";
+    if (vectors.empty())
+        std::cout << "Вектора не найдены\n";
+    else {
+        std::cout << "Найдено векторов: " << vectors.size() << "\n";
+        for (auto & vector : vectors) {
+            std::cout << "<<";
+            for (size_t j = 0; j < vector.size(); ++j) {
+                std::cout << vector[j];
+                if (j < vector.size() - 1) {
+                    std::cout << ", ";
+                }
+            }
+            std::cout << ">>\n";
+        }
     }
 
     try {

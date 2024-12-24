@@ -15,6 +15,10 @@
 
 static std::map<std::string, unsigned> nameTable;
 static unsigned nextVariableID = 1;
+static std::ifstream file;
+static std::vector<std::vector<unsigned>> vectors;
+static bool isParsingVector = false;
+static std::vector<unsigned> currentVector;
 
 // значения лексем
 static constexpr short EQUAL_CODE = 1; // равно
@@ -42,6 +46,18 @@ static constexpr short DIV_CODE = 1010;
 static constexpr short MOD_CODE = 1011;
 static constexpr short VARIABLE_CODE = 1018;
 static constexpr short CONSTANT_CODE = 1019;
+static constexpr short VECTOR_START_CODE = 1020;
+static constexpr short COMMA_CODE = 1021;
+static constexpr short VECTOR_END_CODE = 1022;
+static constexpr short VADD_CODE = 1023;
+static constexpr short VSUB_CODE = 1024;
+static constexpr short VMUL_CODE = 1025;
+static constexpr short VDIV_CODE = 1026;
+static constexpr short VMOD_CODE = 1027;
+static constexpr short VDOT_CODE = 1028;
+static constexpr short VCONCAT_CODE = 1029;
+static constexpr short VLSHIFT_CODE = 1030;
+static constexpr short VRSHIFT_CODE = 1031;
 
 // список лексем
 enum class LexemeClass {
@@ -70,19 +86,31 @@ enum class LexemeClass {
     NOT_EQUAL = NOT_EQUAL_CODE,
     VARIABLE = VARIABLE_CODE,
     CONSTANT = CONSTANT_CODE,
+    VECTOR_START = VECTOR_START_CODE,
+    COMMA = COMMA_CODE,
+    VECTOR_END = VECTOR_END_CODE,
+    VADD = VADD_CODE,
+    VSUB = VSUB_CODE,
+    VMUL = VMUL_CODE,
+    VDIV = VDIV_CODE,
+    VMOD = VMOD_CODE,
+    VDOT = VDOT_CODE,
+    VCONCAT = VCONCAT_CODE,
+    VLSHIFT = VLSHIFT_CODE,
+    VRSHIFT = VRSHIFT_CODE,
 };
 
 // список символьных лексем
 enum class SymbolicTokenClass {
-    LETTER, DIGIT, SIGN, ARITHMETIC_OPERATION, COMPARISON_OPERATION, SPACE_OR_TAB, END_OF_LINE, SEMICOLON,
-    ERROR, END_OF_FILE
+    LETTER, DIGIT, SIGN, ARITHMETIC_OPERATION, COMPARISON_OPERATION,
+    SPACE_OR_TAB, END_OF_LINE, SEMICOLON, VECTOR_SYMBOL, COMMA, ERROR, END_OF_FILE
 };
 
 // состояния
 enum class States {
     states_A1, states_A2, states_B1, states_C1, states_D1, states_E1, states_E2, states_E3, states_F1, states_F2,
     states_F3, states_G1, states_H1, states_I1, states_I2, states_J1, states_M1, states_STOP, EXIT1, EXIT2, EXIT3,
-    EXIT4, ERROR1
+    EXIT4, ERROR1,  states_V1, states_V2, states_V3, handleVCommand
 };
 
 // структура для представления символьной лексемы
@@ -245,9 +273,8 @@ std::vector<std::string> convertLexemesToProgram(const std::vector<Lexeme> &lexe
                 break;
         }
 
-        if (!line.empty()) {
+        if (!line.empty())
             program.push_back(line);
-        }
     }
 
     return program;
@@ -279,9 +306,74 @@ extern void createLexeme(LexemeClass classRegister, unsigned pointerRegister, un
                          unsigned relationRegister,
                          unsigned lineNumber);
 
+// SymbolicToken transliterator(int ch) {
+//     SymbolicToken symbol{};
+//     symbol.value = 0;
+//
+//     if (isalpha(ch)) {
+//         symbol.tokenClass = SymbolicTokenClass::LETTER;
+//         symbol.value = static_cast<unsigned>(std::tolower(ch));
+//     } else if (isdigit(ch)) {
+//         symbol.tokenClass = SymbolicTokenClass::DIGIT;
+//         symbol.value = static_cast<unsigned>(ch - '0');
+//     } else if (ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '%') {
+//         symbol.tokenClass = SymbolicTokenClass::ARITHMETIC_OPERATION;
+//         symbol.value = static_cast<unsigned>(ch);
+//     } else if (ch == '=' || ch == '!' || ch == '<' || ch == '>') {
+//         if (ch == '<' && file.peek() == '<') {
+//             file.get();
+//             symbol.tokenClass = SymbolicTokenClass::VECTOR_SYMBOL;
+//             symbol.value = VECTOR_START_CODE;
+//         } else if (ch == '>' && file.peek() == '>') {
+//             file.get();
+//             symbol.tokenClass = SymbolicTokenClass::VECTOR_SYMBOL;
+//             symbol.value = VECTOR_END_CODE;
+//         } else {
+//             symbol.tokenClass = SymbolicTokenClass::COMPARISON_OPERATION;
+//             symbol.value = static_cast<unsigned>(ch);
+//         }
+//     } else if (ch == ',') {
+//         symbol.tokenClass = SymbolicTokenClass::COMMA;
+//         symbol.value = static_cast<unsigned>(ch);
+//     } else if (ch == ' ' || ch == '\t')
+//         symbol.tokenClass = SymbolicTokenClass::SPACE_OR_TAB;
+//     else if (ch == '\n')
+//         symbol.tokenClass = SymbolicTokenClass::END_OF_LINE;
+//     else if (ch == EOF)
+//         symbol.tokenClass = SymbolicTokenClass::END_OF_FILE;
+//     else if (ch == ';') {
+//         symbol.tokenClass = SymbolicTokenClass::SEMICOLON;
+//         symbol.value = static_cast<unsigned>(ch);
+//     } else
+//         symbol.tokenClass = SymbolicTokenClass::ERROR;
+//
+//     return symbol;
+// }
+
 SymbolicToken transliterator(int ch) {
+    static bool inComment = false;
+
     SymbolicToken symbol{};
     symbol.value = 0;
+
+    if (ch == ';') {
+        inComment = true;
+        symbol.tokenClass = SymbolicTokenClass::SEMICOLON;
+        symbol.value = static_cast<unsigned>(ch);
+        return symbol;
+    }
+
+    if (ch == '\n') {
+        inComment = false;
+        symbol.tokenClass = SymbolicTokenClass::END_OF_LINE;
+        return symbol;
+    }
+
+    if (inComment) {
+        symbol.tokenClass = SymbolicTokenClass::SEMICOLON;
+        symbol.value = static_cast<unsigned>(ch);
+        return symbol;
+    }
 
     if (isalpha(ch)) {
         symbol.tokenClass = SymbolicTokenClass::LETTER;
@@ -293,18 +385,28 @@ SymbolicToken transliterator(int ch) {
         symbol.tokenClass = SymbolicTokenClass::ARITHMETIC_OPERATION;
         symbol.value = static_cast<unsigned>(ch);
     } else if (ch == '=' || ch == '!' || ch == '<' || ch == '>') {
-        symbol.tokenClass = SymbolicTokenClass::COMPARISON_OPERATION;
+        if (ch == '<' && file.peek() == '<') {
+            file.get();
+            symbol.tokenClass = SymbolicTokenClass::VECTOR_SYMBOL;
+            symbol.value = VECTOR_START_CODE;
+        } else if (ch == '>' && file.peek() == '>') {
+            file.get();
+            symbol.tokenClass = SymbolicTokenClass::VECTOR_SYMBOL;
+            symbol.value = VECTOR_END_CODE;
+        } else {
+            symbol.tokenClass = SymbolicTokenClass::COMPARISON_OPERATION;
+            symbol.value = static_cast<unsigned>(ch);
+        }
+    } else if (ch == ',') {
+        symbol.tokenClass = SymbolicTokenClass::COMMA;
         symbol.value = static_cast<unsigned>(ch);
-    } else if (ch == ' ' || ch == '\t')
+    } else if (ch == ' ' || ch == '\t') {
         symbol.tokenClass = SymbolicTokenClass::SPACE_OR_TAB;
-    else if (ch == '\n')
-        symbol.tokenClass = SymbolicTokenClass::END_OF_LINE;
-    else if (ch == EOF)
+    } else if (ch == EOF) {
         symbol.tokenClass = SymbolicTokenClass::END_OF_FILE;
-    else if (ch == ';')
-        symbol.tokenClass = SymbolicTokenClass::SEMICOLON;
-    else
+    } else {
         symbol.tokenClass = SymbolicTokenClass::ERROR;
+    }
 
     return symbol;
 }
@@ -354,7 +456,13 @@ extern std::map<char, VariantType> initialMap;
 std::vector<std::string> variables;
 
 void addVariable() {
-    static const std::array<std::string, 7> keyWords = {"push", "pop", "jmp", "ji", "read", "write", "end"};
+    if (variableRegister.find('<') != std::string::npos ||
+        variableRegister.find('>') != std::string::npos ||
+        variableRegister.find(',') != std::string::npos) {
+        return;
+    }
+
+    static const std::array<std::string, 16> keyWords = {"push", "pop", "jmp", "ji", "read", "write", "end", "vadd", "vsub", "vmul", "vdiv", "vmod", "vdot", "vconcat", "vlshift", "vrshift"};
     for (const auto &keyWord: keyWords)
         if (variableRegister == keyWord) {
             std::cerr << "Имя переменной совпадает с одним из ключевых слов" << std::endl;
@@ -385,6 +493,17 @@ void createLexeme(LexemeClass classRegister, unsigned pointerRegister, unsigned 
             if (!variableRegister.empty())
                 addNameToTable(variableRegister);
             newLexeme.value = pointerRegister;
+            break;
+        case LexemeClass::VADD:
+        case LexemeClass::VSUB:
+        case LexemeClass::VMUL:
+        case LexemeClass::VDIV:
+        case LexemeClass::VMOD:
+        case LexemeClass::VDOT:
+        case LexemeClass::VCONCAT:
+        case LexemeClass::VLSHIFT:
+        case LexemeClass::VRSHIFT:
+            newLexeme.value = static_cast<unsigned>(classRegister);
             break;
         default:
             newLexeme.value = pointerRegister;
@@ -425,6 +544,18 @@ std::string getLexemeValueString(LexemeClass lexemeClass, unsigned value) {
         case LexemeClass::SUB: return "-";
         case LexemeClass::DIV: return "/";
         case LexemeClass::MOD: return "%";
+        case LexemeClass::VECTOR_START: return "<<";
+        case LexemeClass::COMMA: return ",";
+        case LexemeClass::VECTOR_END: return ">>";
+        case LexemeClass::VADD: return "VADD";
+        case LexemeClass::VSUB: return "VSUB";
+        case LexemeClass::VMUL: return "VMUL";
+        case LexemeClass::VDIV: return "VDIV";
+        case LexemeClass::VMOD: return "VMOD";
+        case LexemeClass::VDOT: return "VDOT";
+        case LexemeClass::VCONCAT: return "VCONCAT";
+        case LexemeClass::VLSHIFT: return "VLSHIFT";
+        case LexemeClass::VRSHIFT: return "VRSHIFT";
         default: return "UNKNOWN";
     }
 }
@@ -512,6 +643,7 @@ States A2f() {
 
 States B1a() {
     char currentSymbol = static_cast<char>(std::tolower(static_cast<int>(globalSymbol.value)));
+    variableRegister = std::string(1, currentSymbol);
 
     auto it = initialMap.find(currentSymbol);
     if (it != initialMap.end()) {
@@ -784,8 +916,56 @@ States H1a() {
     return States::states_H1;
 }
 
+extern States handleVCommand();
+
 States H1b() {
     variableRegister += static_cast<char>(globalSymbol.value);
+
+    if (variableRegister == "vadd") {
+        classRegister = static_cast<unsigned short>(LexemeClass::VADD);
+        createLexeme(LexemeClass::VADD, 0, 0, 0, lineNumber);
+        return States::states_C1;
+    }
+    if (variableRegister == "vsub") {
+        classRegister = static_cast<unsigned short>(LexemeClass::VSUB);
+        createLexeme(LexemeClass::VSUB, 0, 0, 0, lineNumber);
+        return States::states_C1;
+    }
+    if (variableRegister == "vmul") {
+        classRegister = static_cast<unsigned short>(LexemeClass::VMUL);
+        createLexeme(LexemeClass::VMUL, 0, 0, 0, lineNumber);
+        return States::states_C1;
+    }
+    if (variableRegister == "vdiv") {
+        classRegister = static_cast<unsigned short>(LexemeClass::VDIV);
+        createLexeme(LexemeClass::VDIV, 0, 0, 0, lineNumber);
+        return States::states_C1;
+    }
+    if (variableRegister == "vmod") {
+        classRegister = static_cast<unsigned short>(LexemeClass::VMOD);
+        createLexeme(LexemeClass::VMOD, 0, 0, 0, lineNumber);
+        return States::states_C1;
+    }
+    if (variableRegister == "vdot") {
+        classRegister = static_cast<unsigned short>(LexemeClass::VDOT);
+        createLexeme(LexemeClass::VDOT, 0, 0, 0, lineNumber);
+        return States::states_C1;
+    }
+    if (variableRegister == "vconcat") {
+        classRegister = static_cast<unsigned short>(LexemeClass::VCONCAT);
+        createLexeme(LexemeClass::VCONCAT, 0, 0, 0, lineNumber);
+        return States::states_C1;
+    }
+    if (variableRegister == "vlshift") {
+        classRegister = static_cast<unsigned short>(LexemeClass::VLSHIFT);
+        createLexeme(LexemeClass::VLSHIFT, 0, 0, 0, lineNumber);
+        return States::states_C1;
+    }
+    if (variableRegister == "vrshift") {
+        classRegister = static_cast<unsigned short>(LexemeClass::VRSHIFT);
+        createLexeme(LexemeClass::VRSHIFT, 0, 0, 0, lineNumber);
+        return States::states_C1;
+    }
 
     return States::states_H1;
 }
@@ -858,61 +1038,23 @@ States J1() {
 }
 
 States M1() {
-    static size_t lastFoundIndex = 0;
+    [[maybe_unused]] static size_t lastFoundIndex = 0;
 
     if (!globalSymbol.value)
         return ERROR1(lineNumber);
 
     char currentSymbol = static_cast<char>(std::tolower(static_cast<int>(globalSymbol.value)));
 
-    if (detectionRegister == static_cast<short>(currentSymbol)) {
-        for (const auto &[value, symbol, optionalValue, procedure]: vectorOfAlternatives) {
-            if (static_cast<short>(value) == detectionRegister) {
+    for (const auto &[value, symbol, optionalValue, procedure]: vectorOfAlternatives) {
+        if (static_cast<unsigned long>(detectionRegister) == value) {
+            if (symbol == currentSymbol) {
                 lastFoundIndex = 0;
-                if (procedure)
+                if (procedure) {
                     return procedure();
-                else
-                    return ERROR1(lineNumber);
-            }
-        }
-    } else {
-        for (size_t i = lastFoundIndex; i < vectorOfAlternatives.size(); ++i) {
-            const auto &[value, symbol, optionalValue, procedure] = vectorOfAlternatives[i];
-            if (static_cast<char>(std::tolower(symbol)) == currentSymbol) {
-                detectionRegister = static_cast<short>(value);
-                if (optionalValue.has_value())
-                    detectionRegister = static_cast<short>(optionalValue.value());
-
-                lastFoundIndex = i + 1;
-
-                if (procedure == C1d || procedure == C1c || procedure == E1a ||
-                    procedure == E3a || procedure == E2b || procedure == E2a || procedure == C1b)
-                    lastFoundIndex = 0;
-
-                if (procedure)
-                    return procedure();
-                break;
-            }
-        }
-
-        if (lastFoundIndex > 0) {
-            for (size_t i = 0; i < lastFoundIndex && i < vectorOfAlternatives.size(); ++i) {
-                const auto &[value, symbol, optionalValue, procedure] = vectorOfAlternatives[i];
-                if (static_cast<char>(std::tolower(symbol)) == currentSymbol) {
-                    detectionRegister = static_cast<short>(value);
-                    if (optionalValue.has_value())
-                        detectionRegister = static_cast<short>(optionalValue.value());
-
-                    lastFoundIndex = i + 1;
-
-                    if (procedure == C1d || procedure == C1c || procedure == E1a ||
-                        procedure == E3a || procedure == E2b || procedure == E2a || procedure == C1b)
-                        lastFoundIndex = 0;
-
-                    if (procedure)
-                        return procedure();
-                    break;
                 }
+            } else if (optionalValue.has_value()) {
+                detectionRegister = static_cast<short>(optionalValue.value());
+                return M1();
             }
         }
     }
@@ -921,6 +1063,96 @@ States M1() {
         return ERROR1(lineNumber);
 
     return States::states_M1;
+}
+
+States V1() {
+    if (globalSymbol.tokenClass == SymbolicTokenClass::DIGIT) {
+        numberRegister = globalSymbol.value;
+        classRegister = static_cast<unsigned short>(LexemeClass::CONSTANT);
+        return States::states_V2;
+    }
+    if (globalSymbol.tokenClass == SymbolicTokenClass::SPACE_OR_TAB)
+        return States::states_V1;
+    return ERROR1(lineNumber);
+}
+
+States V2() {
+    if (globalSymbol.tokenClass == SymbolicTokenClass::DIGIT) {
+        numberRegister = 10 * numberRegister + globalSymbol.value;
+        return States::states_V2;
+    }
+    if (globalSymbol.tokenClass == SymbolicTokenClass::COMMA) {
+        currentVector.push_back(numberRegister);
+        createLexeme(static_cast<LexemeClass>(LexemeClass::CONSTANT), 0, numberRegister, 0, lineNumber);
+        createLexeme(LexemeClass::COMMA, 0, 0, 0, lineNumber);
+        numberRegister = 0;
+        return States::states_V1;
+    }
+    if (globalSymbol.tokenClass == SymbolicTokenClass::VECTOR_SYMBOL &&
+        globalSymbol.value == VECTOR_END_CODE) {
+        currentVector.push_back(numberRegister);
+        vectors.push_back(currentVector);
+        currentVector.clear();
+
+        createLexeme(static_cast<LexemeClass>(LexemeClass::CONSTANT), 0, numberRegister, 0, lineNumber);
+        createLexeme(LexemeClass::VECTOR_END, 0, 0, 0, lineNumber);
+        return States::states_C1;
+        }
+    return ERROR1(lineNumber);
+}
+
+States handleVCommand() {
+    classRegister = static_cast<unsigned short>(LexemeClass::VADD);
+    createLexeme(LexemeClass::VADD, 0, 0, 0, lineNumber);
+    return States::states_C1;
+}
+
+States handleVSubCommand() {
+    classRegister = static_cast<unsigned short>(LexemeClass::VSUB);
+    createLexeme(LexemeClass::VSUB, 0, 0, 0, lineNumber);
+    return States::states_C1;
+}
+
+States handleVMulCommand() {
+    classRegister = static_cast<unsigned short>(LexemeClass::VMUL);
+    createLexeme(LexemeClass::VMUL, 0, 0, 0, lineNumber);
+    return States::states_C1;
+}
+
+States handleVDivCommand() {
+    classRegister = static_cast<unsigned short>(LexemeClass::VDIV);
+    createLexeme(LexemeClass::VDIV, 0, 0, 0, lineNumber);
+    return States::states_C1;
+}
+
+States handleVModCommand() {
+    classRegister = static_cast<unsigned short>(LexemeClass::VMOD);
+    createLexeme(LexemeClass::VMOD, 0, 0, 0, lineNumber);
+    return States::states_C1;
+}
+
+States handleVDotCommand() {
+    classRegister = static_cast<unsigned short>(LexemeClass::VDOT);
+    createLexeme(LexemeClass::VDOT, 0, 0, 0, lineNumber);
+    return States::states_C1;
+}
+
+States handleVConcatCommand() {
+    classRegister = static_cast<unsigned short>(LexemeClass::VCONCAT);
+    createLexeme(LexemeClass::VCONCAT, 0, 0, 0, lineNumber);
+    return States::states_C1;
+}
+
+States handleVLShiftCommand() {
+    classRegister = static_cast<unsigned short>(LexemeClass::VLSHIFT);
+    createLexeme(LexemeClass::VLSHIFT, 0, 0, 0, lineNumber);
+    return States::states_C1;
+}
+
+States handleVRShiftCommand() {
+    classRegister = static_cast<unsigned short>(LexemeClass::VRSHIFT);
+    createLexeme(LexemeClass::VRSHIFT, 0, 0, 0, lineNumber);
+    return States::states_C1;
 }
 
 States EXIT1() {
@@ -969,30 +1201,81 @@ States ERROR1(const unsigned &lineNumber) {
     return States::states_J1;
 }
 
-constexpr unsigned short numberStates = 17; // количество состояний
-constexpr unsigned short numberClass = 10; // количество символьных лексем
+constexpr unsigned short numberStates = 27; // количество состояний
+constexpr unsigned short numberClass = 12; // количество символьных лексем
 
 using functionPointer = States (*)();
 using TransitionTable = std::array<std::array<functionPointer, numberClass>, numberStates>;
 
-std::vector<std::tuple<unsigned long, char, std::optional<unsigned long>, Procedure>> vectorOfAlternatives = {
+std::vector<std::tuple<unsigned long, char, std::optional<unsigned long>, Procedure> > vectorOfAlternatives = {
     {1, 'n', std::nullopt, B1b},
     {2, 'd', std::nullopt, C1b},
+
     {3, 'i', std::make_optional(4UL), E2a},
+
     {4, 'm', std::nullopt, B1b},
     {5, 'p', std::nullopt, E2b},
+
     {6, 'o', std::make_optional(8UL), B1b},
     {7, 'p', std::nullopt, E3a},
+
     {8, 'u', std::nullopt, B1b},
     {9, 's', std::nullopt, B1b},
     {10, 'h', std::nullopt, E1a},
+
     {11, 'e', std::nullopt, B1b},
     {12, 'a', std::nullopt, B1b},
     {13, 'd', std::nullopt, C1c},
+
     {14, 'r', std::nullopt, B1b},
     {15, 'i', std::nullopt, B1b},
     {16, 't', std::nullopt, B1b},
-    {17, 'e', std::nullopt, C1d}
+    {17, 'e', std::nullopt, C1d},
+
+    {18, 'a', std::make_optional(21UL), B1b},
+    {19, 'd', std::nullopt, B1b},
+    {20, 'd', std::nullopt, handleVCommand},
+
+    {21, 's', std::make_optional(24UL), B1b},
+    {22, 'u', std::nullopt, B1b},
+    {23, 'b', std::nullopt, handleVSubCommand},
+
+    {24, 'm', std::make_optional(27UL), B1b},
+    {25, 'u', std::make_optional(31UL), B1b},
+    {26, 'l', std::nullopt, handleVMulCommand},
+
+    {27, 'd', std::make_optional(30UL), B1b},
+    {28, 'i', std::nullopt, B1b},
+    {29, 'v', std::nullopt, handleVDivCommand},
+
+    {30, 'm', std::make_optional(33UL), B1b},
+    {31, 'o', std::nullopt, B1b},
+    {32, 'd', std::nullopt, handleVModCommand},
+
+    {33, 'd', std::make_optional(36UL), B1b},
+    {34, 'o', std::nullopt, B1b},
+    {35, 't', std::nullopt, handleVDotCommand},
+
+    {36, 'c', std::make_optional(42UL), B1b},
+    {37, 'o', std::nullopt, B1b},
+    {38, 'n', std::nullopt, B1b},
+    {39, 'c', std::nullopt, B1b},
+    {40, 'a', std::nullopt, B1b},
+    {41, 't', std::nullopt, handleVConcatCommand},
+
+    {42, 'l', std::make_optional(48UL), B1b},
+    {43, 's', std::nullopt, B1b},
+    {44, 'h', std::nullopt, B1b},
+    {45, 'i', std::nullopt, B1b},
+    {46, 'f', std::nullopt, B1b},
+    {47, 't', std::nullopt, handleVLShiftCommand},
+
+    {48, 'r', std::nullopt, B1b},
+    {49, 's', std::nullopt, B1b},
+    {50, 'h', std::nullopt, B1b},
+    {51, 'i', std::nullopt, B1b},
+    {52, 'f', std::nullopt, B1b},
+    {53, 't', std::nullopt, handleVRShiftCommand}
 };
 
 std::map<char, VariantType> initialMap{
@@ -1017,7 +1300,7 @@ std::map<char, VariantType> initialMap{
     {'s', VariantType{SymbolicTokenClass::ERROR}},
     {'t', VariantType{SymbolicTokenClass::ERROR}},
     {'u', VariantType{SymbolicTokenClass::ERROR}},
-    {'v', VariantType{SymbolicTokenClass::ERROR}},
+    {'v', VariantType{static_cast<unsigned long>(18)}},
     {'w', VariantType{static_cast<unsigned long>(14)}},
     {'x', VariantType{SymbolicTokenClass::ERROR}},
     {'y', VariantType{SymbolicTokenClass::ERROR}},
@@ -1029,7 +1312,14 @@ TransitionTable initializeTable() {
     for (auto &row: table)
         std::ranges::fill(row, []() -> States { return ERROR1(0); });
 
-    table[static_cast<std::size_t>(States::states_A1)][static_cast<std::size_t>(SymbolicTokenClass::LETTER)] = B1a;
+    table[static_cast<std::size_t>(States::states_A1)][static_cast<std::size_t>(SymbolicTokenClass::LETTER)] = []() {
+        if (variableRegister == "vadd") {
+            classRegister = static_cast<unsigned short>(LexemeClass::VADD);
+            createLexeme(LexemeClass::VADD, 0, 0, 0, lineNumber);
+            return States::states_C1;
+        }
+        return B1a();
+    };
     table[static_cast<std::size_t>(States::states_A1)][static_cast<std::size_t>(SymbolicTokenClass::ARITHMETIC_OPERATION)] = C1a;
     table[static_cast<std::size_t>(States::states_A1)][static_cast<std::size_t>(SymbolicTokenClass::COMPARISON_OPERATION)] = D1a;
     table[static_cast<std::size_t>(States::states_A1)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = A1;
@@ -1122,13 +1412,26 @@ TransitionTable initializeTable() {
     table[static_cast<std::size_t>(States::states_J1)][static_cast<std::size_t>(SymbolicTokenClass::ERROR)] = J1;
     table[static_cast<std::size_t>(States::states_J1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_FILE)] = EXIT1;
 
+    table[static_cast<std::size_t>(States::states_F1)][static_cast<std::size_t>(SymbolicTokenClass::VECTOR_SYMBOL)] = [](){
+        createLexeme(LexemeClass::VECTOR_START, 0, 0, 0, lineNumber);
+        return States::states_V1;
+    };
+
+    table[static_cast<std::size_t>(States::states_V1)][static_cast<std::size_t>(SymbolicTokenClass::DIGIT)] = V1;
+    table[static_cast<std::size_t>(States::states_V2)][static_cast<std::size_t>(SymbolicTokenClass::COMMA)] = V2;
+    table[static_cast<std::size_t>(States::states_V1)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = V1;
+
+    table[static_cast<std::size_t>(States::states_V2)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = V2;
+    table[static_cast<std::size_t>(States::states_V2)][static_cast<std::size_t>(SymbolicTokenClass::DIGIT)] = V2;
+    table[static_cast<std::size_t>(States::states_V2)][static_cast<std::size_t>(SymbolicTokenClass::VECTOR_SYMBOL)] = V2;
+
     return table;
 }
 
 void parse(const std::string &filePath) {
     TransitionTable table = initializeTable();
 
-    std::ifstream file(filePath);
+    file.open(filePath);
     if (!file) {
         std::cerr << "Не удалось открыть файл: " << filePath << std::endl;
         return;
@@ -1136,7 +1439,7 @@ void parse(const std::string &filePath) {
 
     std::cout << "Содержимое файла:\n";
     std::string fileContent((std::istreambuf_iterator<char>(file)),
-                           std::istreambuf_iterator<char>());
+                            std::istreambuf_iterator<char>());
     std::cout << fileContent << std::endl << std::endl;
 
     file.clear();
@@ -1148,7 +1451,6 @@ void parse(const std::string &filePath) {
     while (currentState != States::states_STOP) {
         int charCode = file.get();
 
-        [[maybe_unused]]auto temp = currentState;
         if (charCode == EOF) {
             globalSymbol = transliterator(EOF);
             auto tokenClass = static_cast<size_t>(globalSymbol.tokenClass);
@@ -1183,7 +1485,6 @@ void parse(const std::string &filePath) {
             currentState = nextStateFunction();
         else
             break;
-
     }
     file.close();
 }

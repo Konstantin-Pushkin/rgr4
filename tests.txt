@@ -1,11 +1,7 @@
-pus h
-pushh x
-pop 6
-jmp
-ji asdf
-=>
-++
-qwerty
-$
-push read
-write t
+read
+read
++
+push 2
+*
+push 3
+/
