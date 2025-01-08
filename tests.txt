@@ -1,7 +1,0 @@
-read
-read
-+
-push 2
-*
-push 3
-/
