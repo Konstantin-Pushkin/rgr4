@@ -1,0 +1,3 @@
+/Users/kostya/Desktop/Карлов/2 курс/языки программирования и методы трансляции/rgr4-master/build/CMakeFiles/rgr4.dir
+/Users/kostya/Desktop/Карлов/2 курс/языки программирования и методы трансляции/rgr4-master/build/CMakeFiles/edit_cache.dir
+/Users/kostya/Desktop/Карлов/2 курс/языки программирования и методы трансляции/rgr4-master/build/CMakeFiles/rebuild_cache.dir

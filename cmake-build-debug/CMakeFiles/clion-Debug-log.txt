@@ -1,0 +1,4 @@
+/Users/kostya/Applications/CLion.app/Contents/bin/cmake/mac/aarch64/bin/cmake -DCMAKE_BUILD_TYPE=Debug -G "Unix Makefiles" -S "/Users/kostya/Desktop/Карлов/2 курс/языки программирования и методы трансляции/rgr4-master" -B "/Users/kostya/Desktop/Карлов/2 курс/языки программирования и методы трансляции/rgr4-master/cmake-build-debug"
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /Users/kostya/Desktop/Карлов/2 курс/языки программирования и методы трансляции/rgr4-master/cmake-build-debug
