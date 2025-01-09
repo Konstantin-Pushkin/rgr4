@@ -1,3 +1,5 @@
+#include <iostream>
+
 #include "../include/Interpreter.hpp"
 
 void Interpreter::execute() {
