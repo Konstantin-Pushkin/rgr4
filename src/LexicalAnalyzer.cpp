@@ -1,6 +1,12 @@
 #include <iostream>
 #include <algorithm>
+
 #include "../include/LexicalAnalyzer.hpp"
+
+std::map<std::string, unsigned> nameTable;
+std::ifstream file;
+std::vector<std::vector<unsigned>> vectors;
+std::vector<unsigned> currentVector;
 
 void addNameToTable(const std::string &name) {
     auto it = nameTable.find(name);
@@ -101,11 +107,11 @@ SymbolicToken transliterator(int ch) {
         if (ch == '<' && file.peek() == '<') {
             file.get();
             symbol.tokenClass = SymbolicTokenClass::VECTOR_SYMBOL;
-            symbol.value = VECTOR_START_CODE;
+            symbol.value = static_cast<unsigned>(LexemeCodes::VECTOR_START);
         } else if (ch == '>' && file.peek() == '>') {
             file.get();
             symbol.tokenClass = SymbolicTokenClass::VECTOR_SYMBOL;
-            symbol.value = VECTOR_END_CODE;
+            symbol.value = static_cast<unsigned>(LexemeCodes::VECTOR_END);
         } else {
             symbol.tokenClass = SymbolicTokenClass::COMPARISON_OPERATION;
             symbol.value = static_cast<unsigned>(ch);
@@ -222,8 +228,8 @@ std::string getLexemeValueString(LexemeClass lexemeClass, unsigned value) {
 States A1() {
     if (globalSymbol.tokenClass == SymbolicTokenClass::SPACE_OR_TAB)
         return States::states_A1;
-    else
-        return ERROR1(lineNumber);
+
+    return ERROR1(lineNumber);
 }
 
 States A1a() {
@@ -240,10 +246,10 @@ States A1b() {
 }
 
 States A2() {
-    if (globalSymbol.tokenClass == SymbolicTokenClass::SPACE_OR_TAB) {
+    if (globalSymbol.tokenClass == SymbolicTokenClass::SPACE_OR_TAB)
         return States::states_A2;
-    } else
-        return ERROR1(lineNumber);
+
+    return ERROR1(lineNumber);
 }
 
 States A2a() {
@@ -326,14 +332,15 @@ States B1b() {
 }
 
 States C1() {
-    if (globalSymbol.tokenClass == SymbolicTokenClass::SPACE_OR_TAB) {
+    if (globalSymbol.tokenClass == SymbolicTokenClass::SPACE_OR_TAB)
         return States::states_C1;
-    } else if (globalSymbol.tokenClass == SymbolicTokenClass::END_OF_LINE ||
-               globalSymbol.tokenClass == SymbolicTokenClass::SEMICOLON ||
-               globalSymbol.tokenClass == SymbolicTokenClass::END_OF_FILE) {
+
+    if (globalSymbol.tokenClass == SymbolicTokenClass::END_OF_LINE ||
+        globalSymbol.tokenClass == SymbolicTokenClass::SEMICOLON ||
+        globalSymbol.tokenClass == SymbolicTokenClass::END_OF_FILE)
         return States::states_A2;
-    } else
-        return ERROR1(lineNumber);
+
+    return ERROR1(lineNumber);
 }
 
 States C1a() {
@@ -438,18 +445,18 @@ States C1h() {
         return ERROR1(lineNumber);
 
     switch (relationValue) {
-        case LESS_EQUAL_CODE:
+        case static_cast<short>(LexemeCodes::LESS_EQUAL):
             classRegister = static_cast<unsigned short>(LexemeClass::LESS_EQUAL);
-        break;
-        case GREATER_EQUAL_CODE:
+            break;
+        case static_cast<short>(LexemeCodes::GREATER_EQUAL):
             classRegister = static_cast<unsigned short>(LexemeClass::GREATER_EQUAL);
-        break;
-        case EQUAL_CODE:
+            break;
+        case static_cast<short>(LexemeCodes::EQUAL):
             classRegister = static_cast<unsigned short>(LexemeClass::EQUAL);
-        break;
-        case NOT_EQUAL_CODE:
+            break;
+        case static_cast<short>(LexemeCodes::NOT_EQUAL):
             classRegister = static_cast<unsigned short>(LexemeClass::NOT_EQUAL);
-        break;
+            break;
         default: ;
     }
 
@@ -523,30 +530,33 @@ States E3a() {
 States F1() {
     if (globalSymbol.tokenClass == SymbolicTokenClass::SPACE_OR_TAB)
         return States::states_F1;
-    else if (globalSymbol.tokenClass == SymbolicTokenClass::LETTER)
+
+    if (globalSymbol.tokenClass == SymbolicTokenClass::LETTER)
         return H1a();
-    else if (globalSymbol.tokenClass == SymbolicTokenClass::DIGIT)
+
+    if (globalSymbol.tokenClass == SymbolicTokenClass::DIGIT)
         return G1a();
-    else
-        return ERROR1(lineNumber);
+
+    return ERROR1(lineNumber);
 }
 
 States F2() {
     if (globalSymbol.tokenClass == SymbolicTokenClass::SPACE_OR_TAB)
         return States::states_F2;
-    else if (globalSymbol.tokenClass == SymbolicTokenClass::DIGIT)
+    if (globalSymbol.tokenClass == SymbolicTokenClass::DIGIT)
         return G1a();
-    else
-        return ERROR1(lineNumber);
+
+    return ERROR1(lineNumber);
 }
 
 States F3() {
     if (globalSymbol.tokenClass == SymbolicTokenClass::SPACE_OR_TAB)
         return States::states_F3;
-    else if (globalSymbol.tokenClass == SymbolicTokenClass::LETTER)
+
+    if (globalSymbol.tokenClass == SymbolicTokenClass::LETTER)
         return H1a();
-    else
-        return ERROR1(lineNumber);
+
+    return ERROR1(lineNumber);
 }
 
 States G1a() {
@@ -564,7 +574,7 @@ States G1b() {
 
 States H1a() {
     variableRegister = static_cast<char>(globalSymbol.value);
-    classRegister = VARIABLE_CODE;
+    classRegister = static_cast<unsigned short>(LexemeCodes::VARIABLE);
     variableRegister = std::string(1, static_cast<char>(globalSymbol.value));
 
     return States::states_H1;
@@ -652,7 +662,7 @@ States I2a() {
         if (globalComment.empty() || globalComment[0] == ' ')
             classRegister = static_cast<unsigned short>(LexemeClass::COMMENT);
         else {
-            if (std::ranges::all_of(globalComment, ::isdigit))
+            if (std::ranges::all_of(globalComment, isdigit))
                 classRegister = static_cast<unsigned short>(std::stoi(globalComment));
             else
                 classRegister = static_cast<unsigned short>(LexemeClass::COMMENT);
@@ -734,80 +744,30 @@ States V1() {
     return ERROR1(lineNumber);
 }
 
-// States V2() {
-//     std::cout << "вход в V2" << std::endl;
-//     if (globalSymbol.tokenClass == SymbolicTokenClass::DIGIT) {
-//         numberRegister = 10 * numberRegister + globalSymbol.value;
-//         return States::states_V2;
-//     }
-//
-//     if (globalSymbol.tokenClass == SymbolicTokenClass::COMMA) {
-//         currentVector.push_back(numberRegister);
-//         createLexeme(LexemeClass::CONSTANT, 0, numberRegister, 0, lineNumber);
-//         createLexeme(LexemeClass::COMMA, 0, 0, 0, lineNumber);
-//         numberRegister = 0;
-//         return States::states_V1;
-//     }
-//
-//     if (globalSymbol.tokenClass == SymbolicTokenClass::VECTOR_SYMBOL && globalSymbol.value == VECTOR_END_CODE) {
-//         currentVector.push_back(numberRegister);
-//         vectors.push_back(currentVector);
-//         currentVector.clear();
-//
-//         createLexeme(LexemeClass::CONSTANT, 0, numberRegister, 0, lineNumber);
-//         createLexeme(LexemeClass::VECTOR_END, 0, 0, 0, lineNumber);
-//         return States::states_C1;
-//     }
-//
-//     return ERROR1(lineNumber);
-// }
-
 States V2() {
-    std::cout << "Debug V2: Entering with symbol: "
-              << "class=" << static_cast<int>(globalSymbol.tokenClass)
-              << ", value=" << globalSymbol.value << std::endl;
-
     if (globalSymbol.tokenClass == SymbolicTokenClass::DIGIT) {
         numberRegister = 10 * numberRegister + globalSymbol.value;
-        std::cout << "Debug V2: Added digit, numberRegister = " << numberRegister << std::endl;
         return States::states_V2;
     }
 
     if (globalSymbol.tokenClass == SymbolicTokenClass::COMMA) {
         currentVector.push_back(numberRegister);
-        std::cout << "Debug V2: Added number to currentVector: " << numberRegister << std::endl;
-        std::cout << "Debug V2: Current vector size: " << currentVector.size() << std::endl;
-
         createLexeme(LexemeClass::CONSTANT, 0, numberRegister, 0, lineNumber);
         createLexeme(LexemeClass::COMMA, 0, 0, 0, lineNumber);
         numberRegister = 0;
         return States::states_V1;
     }
 
-    if (globalSymbol.tokenClass == SymbolicTokenClass::VECTOR_SYMBOL &&
-        globalSymbol.value == VECTOR_END_CODE) {
-        std::cout << "Debug V2: Found vector end" << std::endl;
-
+    if (globalSymbol.tokenClass == SymbolicTokenClass::VECTOR_SYMBOL && globalSymbol.value == static_cast<unsigned>(LexemeCodes::VECTOR_END)) {
         currentVector.push_back(numberRegister);
-        std::cout << "Debug V2: Added final number: " << numberRegister << std::endl;
-
         vectors.push_back(currentVector);
-        std::cout << "Debug V2: Added vector to vectors table. Total vectors: " << vectors.size() << std::endl;
-        std::cout << "Debug V2: Vector contents: ";
-        for (const auto& num : currentVector) {
-            std::cout << num << " ";
-        }
-        std::cout << std::endl;
-
         currentVector.clear();
-        numberRegister = 0;
 
         createLexeme(LexemeClass::CONSTANT, 0, numberRegister, 0, lineNumber);
         createLexeme(LexemeClass::VECTOR_END, 0, 0, 0, lineNumber);
         return States::states_C1;
     }
 
-    std::cout << "Debug V2: Returning ERROR1" << std::endl;
     return ERROR1(lineNumber);
 }
 
@@ -881,7 +841,7 @@ States handleVRShiftCommand() {
 }
 
 States EXIT1() {
-    classRegister = END_MARKER_CODE;
+    classRegister = static_cast<unsigned short>(LexemeCodes::END_MARKER);
     createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
 
     return static_cast<States>(0);
@@ -892,7 +852,7 @@ States EXIT2() {
         return ERROR1(lineNumber);
 
     createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
-    classRegister = END_MARKER_CODE;
+    classRegister = static_cast<unsigned short>(LexemeCodes::END_MARKER);
     createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
 
     return static_cast<States>(0);
@@ -903,7 +863,7 @@ States EXIT3() {
     addConstant(localPointerRegister, numberRegister, constantFlag);
     pointerRegister = localPointerRegister;
     createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
-    classRegister = END_MARKER_CODE;
+    classRegister = static_cast<unsigned short>(LexemeCodes::END_MARKER);
     createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
 
     return static_cast<States>(0);
@@ -912,7 +872,7 @@ States EXIT3() {
 States EXIT4() {
     addVariable();
     createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
-    classRegister = END_MARKER_CODE;
+    classRegister = static_cast<unsigned short>(LexemeCodes::END_MARKER);
     createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
 
     return static_cast<States>(0);
