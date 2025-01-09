@@ -1,3 +1,5 @@
+#include <iostream>
+#include <algorithm>
 #include "../include/LexicalAnalyzer.hpp"
 
 void addNameToTable(const std::string &name) {
@@ -59,6 +61,115 @@ void createLexeme(LexemeClass classRegister, unsigned pointerRegister, unsigned 
     }
 
     lexemes.push_back(newLexeme);
+}
+
+SymbolicToken transliterator(int ch) {
+    static bool inComment = false;
+
+    SymbolicToken symbol{};
+    symbol.value = 0;
+
+    if (ch == ';') {
+        inComment = true;
+        symbol.tokenClass = SymbolicTokenClass::SEMICOLON;
+        symbol.value = static_cast<unsigned>(ch);
+        return symbol;
+    }
+
+    if (ch == '\n') {
+        inComment = false;
+        symbol.tokenClass = SymbolicTokenClass::END_OF_LINE;
+        return symbol;
+    }
+
+    if (inComment) {
+        symbol.tokenClass = SymbolicTokenClass::SEMICOLON;
+        symbol.value = static_cast<unsigned>(ch);
+        return symbol;
+    }
+
+    if (isalpha(ch)) {
+        symbol.tokenClass = SymbolicTokenClass::LETTER;
+        symbol.value = static_cast<unsigned>(std::tolower(ch));
+    } else if (isdigit(ch)) {
+        symbol.tokenClass = SymbolicTokenClass::DIGIT;
+        symbol.value = static_cast<unsigned>(ch - '0');
+    } else if (ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '%') {
+        symbol.tokenClass = SymbolicTokenClass::ARITHMETIC_OPERATION;
+        symbol.value = static_cast<unsigned>(ch);
+    } else if (ch == '=' || ch == '!' || ch == '<' || ch == '>') {
+        if (ch == '<' && file.peek() == '<') {
+            file.get();
+            symbol.tokenClass = SymbolicTokenClass::VECTOR_SYMBOL;
+            symbol.value = VECTOR_START_CODE;
+        } else if (ch == '>' && file.peek() == '>') {
+            file.get();
+            symbol.tokenClass = SymbolicTokenClass::VECTOR_SYMBOL;
+            symbol.value = VECTOR_END_CODE;
+        } else {
+            symbol.tokenClass = SymbolicTokenClass::COMPARISON_OPERATION;
+            symbol.value = static_cast<unsigned>(ch);
+        }
+    } else if (ch == ',') {
+        symbol.tokenClass = SymbolicTokenClass::COMMA;
+        symbol.value = static_cast<unsigned>(ch);
+    } else if (ch == ' ' || ch == '\t')
+        symbol.tokenClass = SymbolicTokenClass::SPACE_OR_TAB;
+    else if (ch == EOF)
+        symbol.tokenClass = SymbolicTokenClass::END_OF_FILE;
+    else
+        symbol.tokenClass = SymbolicTokenClass::ERROR;
+
+    return symbol;
+}
+
+short processRelation(char first, char second) {
+    short row = -1;
+    short col = -1;
+
+    if (first == '=')
+        row = 0;
+    else if (first == '!')
+        row = 1;
+    else if (first == '<')
+        row = 2;
+    else if (first == '>')
+        row = 3;
+
+    if (second == '=')
+        col = 0;
+    else if (second == '!')
+        col = 1;
+    else if (second == '<')
+        col = 2;
+    else if (second == '>')
+        col = 3;
+
+    if (row != -1 && col != -1)
+        return static_cast<short>(relationTable[row][col]);
+
+    return -1;
+}
+
+void addVariable() {
+    if (variableRegister.find('<') != std::string::npos ||
+        variableRegister.find('>') != std::string::npos ||
+        variableRegister.find(',') != std::string::npos) {
+        return;
+    }
+
+    static const std::array<std::string, 16> keyWords = {
+        "push", "pop", "jmp", "ji", "read", "write", "end", "vadd", "vsub", "vmul", "vdiv", "vmod", "vdot", "vconcat",
+        "vlshift", "vrshift"
+    };
+
+    for (const auto &keyWord: keyWords)
+        if (variableRegister == keyWord) {
+            std::cerr << "Имя переменной совпадает с одним из ключевых слов" << std::endl;
+            return;
+        }
+
+    addNameToTable(variableRegister);
 }
 
 std::string getLexemeValueString(LexemeClass lexemeClass, unsigned value) {
@@ -623,30 +734,80 @@ States V1() {
     return ERROR1(lineNumber);
 }
 
+// States V2() {
+//     std::cout << "вход в V2" << std::endl;
+//     if (globalSymbol.tokenClass == SymbolicTokenClass::DIGIT) {
+//         numberRegister = 10 * numberRegister + globalSymbol.value;
+//         return States::states_V2;
+//     }
+//
+//     if (globalSymbol.tokenClass == SymbolicTokenClass::COMMA) {
+//         currentVector.push_back(numberRegister);
+//         createLexeme(LexemeClass::CONSTANT, 0, numberRegister, 0, lineNumber);
+//         createLexeme(LexemeClass::COMMA, 0, 0, 0, lineNumber);
+//         numberRegister = 0;
+//         return States::states_V1;
+//     }
+//
+//     if (globalSymbol.tokenClass == SymbolicTokenClass::VECTOR_SYMBOL && globalSymbol.value == VECTOR_END_CODE) {
+//         currentVector.push_back(numberRegister);
+//         vectors.push_back(currentVector);
+//         currentVector.clear();
+//
+//         createLexeme(LexemeClass::CONSTANT, 0, numberRegister, 0, lineNumber);
+//         createLexeme(LexemeClass::VECTOR_END, 0, 0, 0, lineNumber);
+//         return States::states_C1;
+//     }
+//
+//     return ERROR1(lineNumber);
+// }
+
 States V2() {
+    std::cout << "Debug V2: Entering with symbol: "
+              << "class=" << static_cast<int>(globalSymbol.tokenClass)
+              << ", value=" << globalSymbol.value << std::endl;
+
     if (globalSymbol.tokenClass == SymbolicTokenClass::DIGIT) {
         numberRegister = 10 * numberRegister + globalSymbol.value;
+        std::cout << "Debug V2: Added digit, numberRegister = " << numberRegister << std::endl;
         return States::states_V2;
     }
 
     if (globalSymbol.tokenClass == SymbolicTokenClass::COMMA) {
         currentVector.push_back(numberRegister);
-        createLexeme(static_cast<LexemeClass>(LexemeClass::CONSTANT), 0, numberRegister, 0, lineNumber);
+        std::cout << "Debug V2: Added number to currentVector: " << numberRegister << std::endl;
+        std::cout << "Debug V2: Current vector size: " << currentVector.size() << std::endl;
+
+        createLexeme(LexemeClass::CONSTANT, 0, numberRegister, 0, lineNumber);
         createLexeme(LexemeClass::COMMA, 0, 0, 0, lineNumber);
         numberRegister = 0;
         return States::states_V1;
     }
 
-    if (globalSymbol.tokenClass == SymbolicTokenClass::VECTOR_SYMBOL && globalSymbol.value == VECTOR_END_CODE) {
-        currentVector.push_back(numberRegister);
-        vectors.push_back(currentVector);
-        currentVector.clear();
+    if (globalSymbol.tokenClass == SymbolicTokenClass::VECTOR_SYMBOL &&
+        globalSymbol.value == VECTOR_END_CODE) {
+        std::cout << "Debug V2: Found vector end" << std::endl;
 
-        createLexeme(static_cast<LexemeClass>(LexemeClass::CONSTANT), 0, numberRegister, 0, lineNumber);
+        currentVector.push_back(numberRegister);
+        std::cout << "Debug V2: Added final number: " << numberRegister << std::endl;
+
+        vectors.push_back(currentVector);
+        std::cout << "Debug V2: Added vector to vectors table. Total vectors: " << vectors.size() << std::endl;
+        std::cout << "Debug V2: Vector contents: ";
+        for (const auto& num : currentVector) {
+            std::cout << num << " ";
+        }
+        std::cout << std::endl;
+
+        currentVector.clear();
+        numberRegister = 0;
+
+        createLexeme(LexemeClass::CONSTANT, 0, numberRegister, 0, lineNumber);
         createLexeme(LexemeClass::VECTOR_END, 0, 0, 0, lineNumber);
         return States::states_C1;
     }
 
+    std::cout << "Debug V2: Returning ERROR1" << std::endl;
     return ERROR1(lineNumber);
 }
 
@@ -762,6 +923,116 @@ States ERROR1(const unsigned &lineNumber) {
     createLexeme(static_cast<LexemeClass>(classRegister), pointerRegister, numberRegister, static_cast<unsigned>(relationRegister), lineNumber);
 
     return States::states_J1;
+}
+
+TransitionTable initializeTable() {
+    TransitionTable table{};
+    for (auto &row: table)
+        std::ranges::fill(row, []() -> States { return ERROR1(lineNumber); });
+
+    table[static_cast<std::size_t>(States::states_A1)][static_cast<std::size_t>(SymbolicTokenClass::LETTER)] = B1a;
+    table[static_cast<std::size_t>(States::states_A1)][static_cast<std::size_t>(SymbolicTokenClass::ARITHMETIC_OPERATION)] = C1a;
+    table[static_cast<std::size_t>(States::states_A1)][static_cast<std::size_t>(SymbolicTokenClass::COMPARISON_OPERATION)] = D1a;
+    table[static_cast<std::size_t>(States::states_A1)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = A1;
+    table[static_cast<std::size_t>(States::states_A1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A1b;
+    table[static_cast<std::size_t>(States::states_A1)][static_cast<std::size_t>(SymbolicTokenClass::SEMICOLON)] = I1a;
+
+    table[static_cast<std::size_t>(States::states_A2)][static_cast<std::size_t>(SymbolicTokenClass::LETTER)] = B1a;
+    table[static_cast<std::size_t>(States::states_A2)][static_cast<std::size_t>(SymbolicTokenClass::ARITHMETIC_OPERATION)] = C1a;
+    table[static_cast<std::size_t>(States::states_A2)][static_cast<std::size_t>(SymbolicTokenClass::COMPARISON_OPERATION)] = D1a;
+    table[static_cast<std::size_t>(States::states_A2)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = A2;
+    table[static_cast<std::size_t>(States::states_A2)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2a;
+    table[static_cast<std::size_t>(States::states_A2)][static_cast<std::size_t>(SymbolicTokenClass::SEMICOLON)] = I2a;
+    table[static_cast<std::size_t>(States::states_A2)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_FILE)] = EXIT1;
+
+    table[static_cast<std::size_t>(States::states_B1)][static_cast<std::size_t>(SymbolicTokenClass::LETTER)] = M1;
+    table[static_cast<std::size_t>(States::states_B1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2f;
+
+    table[static_cast<std::size_t>(States::states_C1)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = C1;
+    table[static_cast<std::size_t>(States::states_C1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2a;
+    table[static_cast<std::size_t>(States::states_C1)][static_cast<std::size_t>(SymbolicTokenClass::SEMICOLON)] = I2a;
+    table[static_cast<std::size_t>(States::states_C1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_FILE)] = EXIT1;
+
+    table[static_cast<std::size_t>(States::states_D1)][static_cast<std::size_t>(SymbolicTokenClass::COMPARISON_OPERATION)] = C1h;
+    table[static_cast<std::size_t>(States::states_D1)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = C1g;
+    table[static_cast<std::size_t>(States::states_D1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2e;
+    table[static_cast<std::size_t>(States::states_D1)][static_cast<std::size_t>(SymbolicTokenClass::SEMICOLON)] = I2d;
+    table[static_cast<std::size_t>(States::states_D1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_FILE)] = EXIT2;
+
+    table[static_cast<std::size_t>(States::states_E1)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = F1;
+    table[static_cast<std::size_t>(States::states_E1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2f;
+
+    table[static_cast<std::size_t>(States::states_E2)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = F2;
+    table[static_cast<std::size_t>(States::states_E2)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2f;
+
+    table[static_cast<std::size_t>(States::states_E3)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = F3;
+    table[static_cast<std::size_t>(States::states_E3)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2f;
+
+    table[static_cast<std::size_t>(States::states_F1)][static_cast<std::size_t>(SymbolicTokenClass::LETTER)] = H1a;
+    table[static_cast<std::size_t>(States::states_F1)][static_cast<std::size_t>(SymbolicTokenClass::DIGIT)] = G1a;
+    table[static_cast<std::size_t>(States::states_F1)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = F1;
+    table[static_cast<std::size_t>(States::states_F1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2f;
+    table[static_cast<std::size_t>(States::states_F1)][static_cast<std::size_t>(SymbolicTokenClass::VECTOR_SYMBOL)] = handleVectorStart;
+
+    table[static_cast<std::size_t>(States::states_F2)][static_cast<std::size_t>(SymbolicTokenClass::DIGIT)] = G1a;
+    table[static_cast<std::size_t>(States::states_F2)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = F2;
+    table[static_cast<std::size_t>(States::states_F2)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2f;
+
+    table[static_cast<std::size_t>(States::states_F3)][static_cast<std::size_t>(SymbolicTokenClass::LETTER)] = H1a;
+    table[static_cast<std::size_t>(States::states_F3)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = F3;
+    table[static_cast<std::size_t>(States::states_F3)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2f;
+
+    table[static_cast<std::size_t>(States::states_G1)][static_cast<std::size_t>(SymbolicTokenClass::DIGIT)] = G1b;
+    table[static_cast<std::size_t>(States::states_G1)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = C1e;
+    table[static_cast<std::size_t>(States::states_G1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2c;
+    table[static_cast<std::size_t>(States::states_G1)][static_cast<std::size_t>(SymbolicTokenClass::SEMICOLON)] = I2b;
+    table[static_cast<std::size_t>(States::states_G1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_FILE)] = EXIT3;
+
+    table[static_cast<std::size_t>(States::states_H1)][static_cast<std::size_t>(SymbolicTokenClass::LETTER)] = H1b;
+    table[static_cast<std::size_t>(States::states_H1)][static_cast<std::size_t>(SymbolicTokenClass::DIGIT)] = H1b;
+    table[static_cast<std::size_t>(States::states_H1)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = C1f;
+    table[static_cast<std::size_t>(States::states_H1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2d;
+    table[static_cast<std::size_t>(States::states_H1)][static_cast<std::size_t>(SymbolicTokenClass::SEMICOLON)] = I2c;
+    table[static_cast<std::size_t>(States::states_H1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_FILE)] = EXIT4;
+
+    table[static_cast<std::size_t>(States::states_I1)][static_cast<std::size_t>(SymbolicTokenClass::LETTER)] = I1;
+    table[static_cast<std::size_t>(States::states_I1)][static_cast<std::size_t>(SymbolicTokenClass::DIGIT)] = I1;
+    table[static_cast<std::size_t>(States::states_I1)][static_cast<std::size_t>(SymbolicTokenClass::ARITHMETIC_OPERATION)] = I1;
+    table[static_cast<std::size_t>(States::states_I1)][static_cast<std::size_t>(SymbolicTokenClass::COMPARISON_OPERATION)] = I1;
+    table[static_cast<std::size_t>(States::states_I1)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = I1;
+    table[static_cast<std::size_t>(States::states_I1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A1a;
+    table[static_cast<std::size_t>(States::states_I1)][static_cast<std::size_t>(SymbolicTokenClass::SEMICOLON)] = I1;
+    table[static_cast<std::size_t>(States::states_I1)][static_cast<std::size_t>(SymbolicTokenClass::ERROR)] = I1;
+
+    table[static_cast<std::size_t>(States::states_I2)][static_cast<std::size_t>(SymbolicTokenClass::LETTER)] = I2;
+    table[static_cast<std::size_t>(States::states_I2)][static_cast<std::size_t>(SymbolicTokenClass::DIGIT)] = I2;
+    table[static_cast<std::size_t>(States::states_I2)][static_cast<std::size_t>(SymbolicTokenClass::ARITHMETIC_OPERATION)] = I2;
+    table[static_cast<std::size_t>(States::states_I2)][static_cast<std::size_t>(SymbolicTokenClass::COMPARISON_OPERATION)] = I2;
+    table[static_cast<std::size_t>(States::states_I2)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = I2;
+    table[static_cast<std::size_t>(States::states_I2)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2b;
+    table[static_cast<std::size_t>(States::states_I2)][static_cast<std::size_t>(SymbolicTokenClass::SEMICOLON)] = I2;
+    table[static_cast<std::size_t>(States::states_I2)][static_cast<std::size_t>(SymbolicTokenClass::ERROR)] = I2;
+    table[static_cast<std::size_t>(States::states_I2)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_FILE)] = EXIT1;
+
+    table[static_cast<std::size_t>(States::states_J1)][static_cast<std::size_t>(SymbolicTokenClass::LETTER)] = J1;
+    table[static_cast<std::size_t>(States::states_J1)][static_cast<std::size_t>(SymbolicTokenClass::DIGIT)] = J1;
+    table[static_cast<std::size_t>(States::states_J1)][static_cast<std::size_t>(SymbolicTokenClass::ARITHMETIC_OPERATION)] = J1;
+    table[static_cast<std::size_t>(States::states_J1)][static_cast<std::size_t>(SymbolicTokenClass::COMPARISON_OPERATION)] = J1;
+    table[static_cast<std::size_t>(States::states_J1)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = J1;
+    table[static_cast<std::size_t>(States::states_J1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2a;
+    table[static_cast<std::size_t>(States::states_J1)][static_cast<std::size_t>(SymbolicTokenClass::SEMICOLON)] = J1;
+    table[static_cast<std::size_t>(States::states_J1)][static_cast<std::size_t>(SymbolicTokenClass::ERROR)] = J1;
+    table[static_cast<std::size_t>(States::states_J1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_FILE)] = EXIT1;
+
+    table[static_cast<std::size_t>(States::states_V1)][static_cast<std::size_t>(SymbolicTokenClass::DIGIT)] = V1;
+    table[static_cast<std::size_t>(States::states_V2)][static_cast<std::size_t>(SymbolicTokenClass::COMMA)] = V2;
+    table[static_cast<std::size_t>(States::states_V1)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = V1;
+
+    table[static_cast<std::size_t>(States::states_V2)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = V2;
+    table[static_cast<std::size_t>(States::states_V2)][static_cast<std::size_t>(SymbolicTokenClass::DIGIT)] = V2;
+    table[static_cast<std::size_t>(States::states_V2)][static_cast<std::size_t>(SymbolicTokenClass::VECTOR_SYMBOL)] = V2;
+
+    return table;
 }
 
 void parse(const std::string &filePath) {

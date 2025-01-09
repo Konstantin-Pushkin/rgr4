@@ -1,13 +1,9 @@
 #ifndef LEXICALANALYZER_HPP
 #define LEXICALANALYZER_HPP
 
-#include <algorithm>
 #include <array>
 #include <vector>
-#include <cctype>
-#include <cstdio>
 #include <fstream>
-#include <iostream>
 #include <map>
 #include <optional>
 #include <set>
@@ -158,65 +154,7 @@ extern void createLexeme(LexemeClass classRegister, unsigned pointerRegister, un
                          unsigned relationRegister,
                          unsigned lineNumber);
 
-inline SymbolicToken transliterator(int ch) {
-    static bool inComment = false;
-
-    SymbolicToken symbol{};
-    symbol.value = 0;
-
-    if (ch == ';') {
-        inComment = true;
-        symbol.tokenClass = SymbolicTokenClass::SEMICOLON;
-        symbol.value = static_cast<unsigned>(ch);
-        return symbol;
-    }
-
-    if (ch == '\n') {
-        inComment = false;
-        symbol.tokenClass = SymbolicTokenClass::END_OF_LINE;
-        return symbol;
-    }
-
-    if (inComment) {
-        symbol.tokenClass = SymbolicTokenClass::SEMICOLON;
-        symbol.value = static_cast<unsigned>(ch);
-        return symbol;
-    }
-
-    if (isalpha(ch)) {
-        symbol.tokenClass = SymbolicTokenClass::LETTER;
-        symbol.value = static_cast<unsigned>(std::tolower(ch));
-    } else if (isdigit(ch)) {
-        symbol.tokenClass = SymbolicTokenClass::DIGIT;
-        symbol.value = static_cast<unsigned>(ch - '0');
-    } else if (ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '%') {
-        symbol.tokenClass = SymbolicTokenClass::ARITHMETIC_OPERATION;
-        symbol.value = static_cast<unsigned>(ch);
-    } else if (ch == '=' || ch == '!' || ch == '<' || ch == '>') {
-        if (ch == '<' && file.peek() == '<') {
-            file.get();
-            symbol.tokenClass = SymbolicTokenClass::VECTOR_SYMBOL;
-            symbol.value = VECTOR_START_CODE;
-        } else if (ch == '>' && file.peek() == '>') {
-            file.get();
-            symbol.tokenClass = SymbolicTokenClass::VECTOR_SYMBOL;
-            symbol.value = VECTOR_END_CODE;
-        } else {
-            symbol.tokenClass = SymbolicTokenClass::COMPARISON_OPERATION;
-            symbol.value = static_cast<unsigned>(ch);
-        }
-    } else if (ch == ',') {
-        symbol.tokenClass = SymbolicTokenClass::COMMA;
-        symbol.value = static_cast<unsigned>(ch);
-    } else if (ch == ' ' || ch == '\t')
-        symbol.tokenClass = SymbolicTokenClass::SPACE_OR_TAB;
-    else if (ch == EOF)
-        symbol.tokenClass = SymbolicTokenClass::END_OF_FILE;
-    else
-        symbol.tokenClass = SymbolicTokenClass::ERROR;
-
-    return symbol;
-}
+SymbolicToken transliterator(int ch);
 
 inline unsigned relationTable[4][4] = {
     {0, 0, 0, 0},
@@ -225,59 +163,18 @@ inline unsigned relationTable[4][4] = {
     {GREATER_EQUAL_CODE, 0, 0, 0}
 };
 
-inline short processRelation(char first, char second) {
-    short row = -1;
-    short col = -1;
-
-    if (first == '=')
-        row = 0;
-    else if (first == '!')
-        row = 1;
-    else if (first == '<')
-        row = 2;
-    else if (first == '>')
-        row = 3;
-
-    if (second == '=')
-        col = 0;
-    else if (second == '!')
-        col = 1;
-    else if (second == '<')
-        col = 2;
-    else if (second == '>')
-        col = 3;
-
-    if (row != -1 && col != -1)
-        return static_cast<short>(relationTable[row][col]);
-
-    return -1;
-}
+short processRelation(char first, char second);
 
 inline SymbolicToken globalSymbol;
 inline std::string globalComment;
 
 using Procedure = States(*)();
 using VariantType = std::variant<unsigned long, SymbolicTokenClass>;
-extern std::vector<std::tuple<unsigned long, char, std::optional<unsigned long>, Procedure> > vectorOfAlternatives;
+extern std::vector<std::tuple<unsigned long, char, std::optional<unsigned long>, Procedure>> vectorOfAlternatives;
 extern std::map<char, VariantType> initialMap;
 inline std::vector<std::string> variables;
 
-inline void addVariable() {
-    if (variableRegister.find('<') != std::string::npos ||
-        variableRegister.find('>') != std::string::npos ||
-        variableRegister.find(',') != std::string::npos) {
-        return;
-    }
-
-    static const std::array<std::string, 16> keyWords = {"push", "pop", "jmp", "ji", "read", "write", "end", "vadd", "vsub", "vmul", "vdiv", "vmod", "vdot", "vconcat", "vlshift", "vrshift"};
-    for (const auto &keyWord: keyWords)
-        if (variableRegister == keyWord) {
-            std::cerr << "Имя переменной совпадает с одним из ключевых слов" << std::endl;
-            return;
-        }
-
-    addNameToTable(variableRegister);
-}
+void addVariable();
 
 std::string getLexemeValueString(LexemeClass lexemeClass, unsigned value);
 
@@ -505,115 +402,7 @@ inline std::map<char, VariantType> initialMap{
     {'z', VariantType{SymbolicTokenClass::ERROR}}
 };
 
-inline TransitionTable initializeTable() {
-    TransitionTable table{};
-    for (auto &row: table)
-        std::ranges::fill(row, []() -> States { return ERROR1(lineNumber); });
-
-    table[static_cast<std::size_t>(States::states_A1)][static_cast<std::size_t>(SymbolicTokenClass::LETTER)] = B1a;
-    table[static_cast<std::size_t>(States::states_A1)][static_cast<std::size_t>(SymbolicTokenClass::ARITHMETIC_OPERATION)] = C1a;
-    table[static_cast<std::size_t>(States::states_A1)][static_cast<std::size_t>(SymbolicTokenClass::COMPARISON_OPERATION)] = D1a;
-    table[static_cast<std::size_t>(States::states_A1)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = A1;
-    table[static_cast<std::size_t>(States::states_A1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A1b;
-    table[static_cast<std::size_t>(States::states_A1)][static_cast<std::size_t>(SymbolicTokenClass::SEMICOLON)] = I1a;
-
-    table[static_cast<std::size_t>(States::states_A2)][static_cast<std::size_t>(SymbolicTokenClass::LETTER)] = B1a;
-    table[static_cast<std::size_t>(States::states_A2)][static_cast<std::size_t>(SymbolicTokenClass::ARITHMETIC_OPERATION)] = C1a;
-    table[static_cast<std::size_t>(States::states_A2)][static_cast<std::size_t>(SymbolicTokenClass::COMPARISON_OPERATION)] = D1a;
-    table[static_cast<std::size_t>(States::states_A2)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = A2;
-    table[static_cast<std::size_t>(States::states_A2)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2a;
-    table[static_cast<std::size_t>(States::states_A2)][static_cast<std::size_t>(SymbolicTokenClass::SEMICOLON)] = I2a;
-    table[static_cast<std::size_t>(States::states_A2)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_FILE)] = EXIT1;
-
-    table[static_cast<std::size_t>(States::states_B1)][static_cast<std::size_t>(SymbolicTokenClass::LETTER)] = M1;
-    table[static_cast<std::size_t>(States::states_B1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2f;
-
-    table[static_cast<std::size_t>(States::states_C1)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = C1;
-    table[static_cast<std::size_t>(States::states_C1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2a;
-    table[static_cast<std::size_t>(States::states_C1)][static_cast<std::size_t>(SymbolicTokenClass::SEMICOLON)] = I2a;
-    table[static_cast<std::size_t>(States::states_C1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_FILE)] = EXIT1;
-
-    table[static_cast<std::size_t>(States::states_D1)][static_cast<std::size_t>(SymbolicTokenClass::COMPARISON_OPERATION)] = C1h;
-    table[static_cast<std::size_t>(States::states_D1)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = C1g;
-    table[static_cast<std::size_t>(States::states_D1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2e;
-    table[static_cast<std::size_t>(States::states_D1)][static_cast<std::size_t>(SymbolicTokenClass::SEMICOLON)] = I2d;
-    table[static_cast<std::size_t>(States::states_D1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_FILE)] = EXIT2;
-
-    table[static_cast<std::size_t>(States::states_E1)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = F1;
-    table[static_cast<std::size_t>(States::states_E1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2f;
-
-    table[static_cast<std::size_t>(States::states_E2)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = F2;
-    table[static_cast<std::size_t>(States::states_E2)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2f;
-
-    table[static_cast<std::size_t>(States::states_E3)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = F3;
-    table[static_cast<std::size_t>(States::states_E3)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2f;
-
-    table[static_cast<std::size_t>(States::states_F1)][static_cast<std::size_t>(SymbolicTokenClass::LETTER)] = H1a;
-    table[static_cast<std::size_t>(States::states_F1)][static_cast<std::size_t>(SymbolicTokenClass::DIGIT)] = G1a;
-    table[static_cast<std::size_t>(States::states_F1)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = F1;
-    table[static_cast<std::size_t>(States::states_F1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2f;
-    table[static_cast<std::size_t>(States::states_F1)][static_cast<std::size_t>(SymbolicTokenClass::VECTOR_SYMBOL)] = handleVectorStart;
-
-    table[static_cast<std::size_t>(States::states_F2)][static_cast<std::size_t>(SymbolicTokenClass::DIGIT)] = G1a;
-    table[static_cast<std::size_t>(States::states_F2)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = F2;
-    table[static_cast<std::size_t>(States::states_F2)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2f;
-
-    table[static_cast<std::size_t>(States::states_F3)][static_cast<std::size_t>(SymbolicTokenClass::LETTER)] = H1a;
-    table[static_cast<std::size_t>(States::states_F3)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = F3;
-    table[static_cast<std::size_t>(States::states_F3)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2f;
-
-    table[static_cast<std::size_t>(States::states_G1)][static_cast<std::size_t>(SymbolicTokenClass::DIGIT)] = G1b;
-    table[static_cast<std::size_t>(States::states_G1)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = C1e;
-    table[static_cast<std::size_t>(States::states_G1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2c;
-    table[static_cast<std::size_t>(States::states_G1)][static_cast<std::size_t>(SymbolicTokenClass::SEMICOLON)] = I2b;
-    table[static_cast<std::size_t>(States::states_G1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_FILE)] = EXIT3;
-
-    table[static_cast<std::size_t>(States::states_H1)][static_cast<std::size_t>(SymbolicTokenClass::LETTER)] = H1b;
-    table[static_cast<std::size_t>(States::states_H1)][static_cast<std::size_t>(SymbolicTokenClass::DIGIT)] = H1b;
-    table[static_cast<std::size_t>(States::states_H1)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = C1f;
-    table[static_cast<std::size_t>(States::states_H1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2d;
-    table[static_cast<std::size_t>(States::states_H1)][static_cast<std::size_t>(SymbolicTokenClass::SEMICOLON)] = I2c;
-    table[static_cast<std::size_t>(States::states_H1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_FILE)] = EXIT4;
-
-    table[static_cast<std::size_t>(States::states_I1)][static_cast<std::size_t>(SymbolicTokenClass::LETTER)] = I1;
-    table[static_cast<std::size_t>(States::states_I1)][static_cast<std::size_t>(SymbolicTokenClass::DIGIT)] = I1;
-    table[static_cast<std::size_t>(States::states_I1)][static_cast<std::size_t>(SymbolicTokenClass::ARITHMETIC_OPERATION)] = I1;
-    table[static_cast<std::size_t>(States::states_I1)][static_cast<std::size_t>(SymbolicTokenClass::COMPARISON_OPERATION)] = I1;
-    table[static_cast<std::size_t>(States::states_I1)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = I1;
-    table[static_cast<std::size_t>(States::states_I1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A1a;
-    table[static_cast<std::size_t>(States::states_I1)][static_cast<std::size_t>(SymbolicTokenClass::SEMICOLON)] = I1;
-    table[static_cast<std::size_t>(States::states_I1)][static_cast<std::size_t>(SymbolicTokenClass::ERROR)] = I1;
-
-    table[static_cast<std::size_t>(States::states_I2)][static_cast<std::size_t>(SymbolicTokenClass::LETTER)] = I2;
-    table[static_cast<std::size_t>(States::states_I2)][static_cast<std::size_t>(SymbolicTokenClass::DIGIT)] = I2;
-    table[static_cast<std::size_t>(States::states_I2)][static_cast<std::size_t>(SymbolicTokenClass::ARITHMETIC_OPERATION)] = I2;
-    table[static_cast<std::size_t>(States::states_I2)][static_cast<std::size_t>(SymbolicTokenClass::COMPARISON_OPERATION)] = I2;
-    table[static_cast<std::size_t>(States::states_I2)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = I2;
-    table[static_cast<std::size_t>(States::states_I2)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2b;
-    table[static_cast<std::size_t>(States::states_I2)][static_cast<std::size_t>(SymbolicTokenClass::SEMICOLON)] = I2;
-    table[static_cast<std::size_t>(States::states_I2)][static_cast<std::size_t>(SymbolicTokenClass::ERROR)] = I2;
-    table[static_cast<std::size_t>(States::states_I2)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_FILE)] = EXIT1;
-
-    table[static_cast<std::size_t>(States::states_J1)][static_cast<std::size_t>(SymbolicTokenClass::LETTER)] = J1;
-    table[static_cast<std::size_t>(States::states_J1)][static_cast<std::size_t>(SymbolicTokenClass::DIGIT)] = J1;
-    table[static_cast<std::size_t>(States::states_J1)][static_cast<std::size_t>(SymbolicTokenClass::ARITHMETIC_OPERATION)] = J1;
-    table[static_cast<std::size_t>(States::states_J1)][static_cast<std::size_t>(SymbolicTokenClass::COMPARISON_OPERATION)] = J1;
-    table[static_cast<std::size_t>(States::states_J1)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = J1;
-    table[static_cast<std::size_t>(States::states_J1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_LINE)] = A2a;
-    table[static_cast<std::size_t>(States::states_J1)][static_cast<std::size_t>(SymbolicTokenClass::SEMICOLON)] = J1;
-    table[static_cast<std::size_t>(States::states_J1)][static_cast<std::size_t>(SymbolicTokenClass::ERROR)] = J1;
-    table[static_cast<std::size_t>(States::states_J1)][static_cast<std::size_t>(SymbolicTokenClass::END_OF_FILE)] = EXIT1;
-
-    table[static_cast<std::size_t>(States::states_V1)][static_cast<std::size_t>(SymbolicTokenClass::DIGIT)] = V1;
-    table[static_cast<std::size_t>(States::states_V2)][static_cast<std::size_t>(SymbolicTokenClass::COMMA)] = V2;
-    table[static_cast<std::size_t>(States::states_V1)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = V1;
-
-    table[static_cast<std::size_t>(States::states_V2)][static_cast<std::size_t>(SymbolicTokenClass::SPACE_OR_TAB)] = V2;
-    table[static_cast<std::size_t>(States::states_V2)][static_cast<std::size_t>(SymbolicTokenClass::DIGIT)] = V2;
-    table[static_cast<std::size_t>(States::states_V2)][static_cast<std::size_t>(SymbolicTokenClass::VECTOR_SYMBOL)] = V2;
-
-    return table;
-}
+TransitionTable initializeTable();
 
 void parse(const std::string &filePath);
 
