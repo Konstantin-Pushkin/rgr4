@@ -10,89 +10,100 @@
 #include <unordered_map>
 #include <variant>
 
-static std::map<std::string, unsigned> nameTable;
-static std::ifstream file;
-static std::vector<std::vector<unsigned>> vectors;
-static std::vector<unsigned> currentVector;
+extern std::map<std::string, unsigned> nameTable;
+extern std::ifstream file;
+extern std::vector<std::vector<unsigned>> vectors;
+extern std::vector<unsigned> currentVector;
 
-// значения лексем
-static constexpr short EQUAL_CODE = 1; // равно
-static constexpr short NOT_EQUAL_CODE = 2; // не равно
-static constexpr short LESS_CODE = 3; // меньше
-static constexpr short GREATER_CODE = 4; // больше
-static constexpr short LESS_EQUAL_CODE = 5; // меньше либо равно
-static constexpr short GREATER_EQUAL_CODE = 6; // больше либо равно
-static constexpr short PUSH_CODE = 995;
-static constexpr short POP_CODE = 996;
-static constexpr short ARITHMETIC_OPERATION_CODE = 997;
-static constexpr short RELATION_CODE = 998;
-static constexpr short JMP_CODE = 999;
-static constexpr short JI_CODE = 1000;
-static constexpr short READ_CODE = 1001;
-static constexpr short WRITE_CODE = 1002;
-static constexpr short END_CODE = 1003;
-static constexpr short COMMENT_CODE = 1004;
-static constexpr short ERROR_CODE = 1005;
-static constexpr short END_MARKER_CODE = 1006;
-static constexpr short ADD_CODE = 1007;
-static constexpr short SUB_CODE = 1008;
-static constexpr short MUL_CODE = 1009;
-static constexpr short DIV_CODE = 1010;
-static constexpr short MOD_CODE = 1011;
-static constexpr short VARIABLE_CODE = 1018;
-static constexpr short CONSTANT_CODE = 1019;
-static constexpr short VECTOR_START_CODE = 1020;
-static constexpr short COMMA_CODE = 1021;
-static constexpr short VECTOR_END_CODE = 1022;
-static constexpr short VADD_CODE = 1023;
-static constexpr short VSUB_CODE = 1024;
-static constexpr short VMUL_CODE = 1025;
-static constexpr short VDIV_CODE = 1026;
-static constexpr short VMOD_CODE = 1027;
-static constexpr short VDOT_CODE = 1028;
-static constexpr short VCONCAT_CODE = 1029;
-static constexpr short VLSHIFT_CODE = 1030;
-static constexpr short VRSHIFT_CODE = 1031;
+// список кодов лексем
+enum class LexemeCodes {
+    // Операции сравнения
+    EQUAL = 1,           // Равно
+    NOT_EQUAL = 2,       // Не равно
+    LESS = 3,           // Меньше
+    GREATER = 4,        // Больше
+    LESS_EQUAL = 5,     // Меньше либо равно
+    GREATER_EQUAL = 6,  // Больше либо равно
+
+    // Базовые операции
+    PUSH = 995,
+    POP = 996,
+    ARITHMETIC_OPERATION = 997,
+    RELATION = 998,
+    JMP = 999,
+    JI = 1000,
+    READ = 1001,
+    WRITE = 1002,
+    END = 1003,
+    COMMENT = 1004,
+    ERROR = 1005,
+    END_MARKER = 1006,
+
+    // Арифметические операции
+    ADD = 1007,
+    SUB = 1008,
+    MUL = 1009,
+    DIV = 1010,
+    MOD = 1011,
+
+    // Переменные и константы
+    VARIABLE = 1018,
+    CONSTANT = 1019,
+
+    // Векторные операции и разделители
+    VECTOR_START = 1020,
+    COMMA = 1021,
+    VECTOR_END = 1022,
+    VADD = 1023,
+    VSUB = 1024,
+    VMUL = 1025,
+    VDIV = 1026,
+    VMOD = 1027,
+    VDOT = 1028,
+    VCONCAT = 1029,
+    VLSHIFT = 1030,
+    VRSHIFT = 1031
+};
 
 // список лексем
 enum class LexemeClass {
-    PUSH = PUSH_CODE,
-    POP = POP_CODE,
-    ARITHMETIC_OPERATION = ARITHMETIC_OPERATION_CODE,
-    RELATION = RELATION_CODE,
-    JMP = JMP_CODE,
-    JI = JI_CODE,
-    READ = READ_CODE,
-    WRITE = WRITE_CODE,
-    END = END_CODE,
-    COMMENT = COMMENT_CODE,
-    ERROR = ERROR_CODE,
-    END_MARKER = END_MARKER_CODE,
-    ADD = ADD_CODE,
-    SUB = SUB_CODE,
-    MUL = MUL_CODE,
-    DIV = DIV_CODE,
-    MOD = MOD_CODE,
-    LESS = LESS_CODE,
-    GREATER = GREATER_CODE,
-    LESS_EQUAL = LESS_EQUAL_CODE,
-    GREATER_EQUAL = GREATER_EQUAL_CODE,
-    EQUAL = EQUAL_CODE,
-    NOT_EQUAL = NOT_EQUAL_CODE,
-    VARIABLE = VARIABLE_CODE,
-    CONSTANT = CONSTANT_CODE,
-    VECTOR_START = VECTOR_START_CODE,
-    COMMA = COMMA_CODE,
-    VECTOR_END = VECTOR_END_CODE,
-    VADD = VADD_CODE,
-    VSUB = VSUB_CODE,
-    VMUL = VMUL_CODE,
-    VDIV = VDIV_CODE,
-    VMOD = VMOD_CODE,
-    VDOT = VDOT_CODE,
-    VCONCAT = VCONCAT_CODE,
-    VLSHIFT = VLSHIFT_CODE,
-    VRSHIFT = VRSHIFT_CODE,
+    PUSH = static_cast<int>(LexemeCodes::PUSH),
+    POP = static_cast<int>(LexemeCodes::POP),
+    ARITHMETIC_OPERATION = static_cast<int>(LexemeCodes::ARITHMETIC_OPERATION),
+    RELATION = static_cast<int>(LexemeCodes::RELATION),
+    JMP = static_cast<int>(LexemeCodes::JMP),
+    JI = static_cast<int>(LexemeCodes::JI),
+    READ = static_cast<int>(LexemeCodes::READ),
+    WRITE = static_cast<int>(LexemeCodes::WRITE),
+    END = static_cast<int>(LexemeCodes::END),
+    COMMENT = static_cast<int>(LexemeCodes::COMMENT),
+    ERROR = static_cast<int>(LexemeCodes::ERROR),
+    END_MARKER = static_cast<int>(LexemeCodes::END_MARKER),
+    ADD = static_cast<int>(LexemeCodes::ADD),
+    SUB = static_cast<int>(LexemeCodes::SUB),
+    MUL = static_cast<int>(LexemeCodes::MUL),
+    DIV = static_cast<int>(LexemeCodes::DIV),
+    MOD = static_cast<int>(LexemeCodes::MOD),
+    LESS = static_cast<int>(LexemeCodes::LESS),
+    GREATER = static_cast<int>(LexemeCodes::GREATER),
+    LESS_EQUAL = static_cast<int>(LexemeCodes::LESS_EQUAL),
+    GREATER_EQUAL = static_cast<int>(LexemeCodes::GREATER_EQUAL),
+    EQUAL = static_cast<int>(LexemeCodes::EQUAL),
+    NOT_EQUAL = static_cast<int>(LexemeCodes::NOT_EQUAL),
+    VARIABLE = static_cast<int>(LexemeCodes::VARIABLE),
+    CONSTANT = static_cast<int>(LexemeCodes::CONSTANT),
+    VECTOR_START = static_cast<int>(LexemeCodes::VECTOR_START),
+    COMMA = static_cast<int>(LexemeCodes::COMMA),
+    VECTOR_END = static_cast<int>(LexemeCodes::VECTOR_END),
+    VADD = static_cast<int>(LexemeCodes::VADD),
+    VSUB = static_cast<int>(LexemeCodes::VSUB),
+    VMUL = static_cast<int>(LexemeCodes::VMUL),
+    VDIV = static_cast<int>(LexemeCodes::VDIV),
+    VMOD = static_cast<int>(LexemeCodes::VMOD),
+    VDOT = static_cast<int>(LexemeCodes::VDOT),
+    VCONCAT = static_cast<int>(LexemeCodes::VCONCAT),
+    VLSHIFT = static_cast<int>(LexemeCodes::VLSHIFT),
+    VRSHIFT = static_cast<int>(LexemeCodes::VRSHIFT),
 };
 
 // список символьных лексем
@@ -158,9 +169,9 @@ SymbolicToken transliterator(int ch);
 
 inline unsigned relationTable[4][4] = {
     {0, 0, 0, 0},
-    {NOT_EQUAL_CODE, 0, 0, 0},
-    {LESS_EQUAL_CODE, 0, 0, 0},
-    {GREATER_EQUAL_CODE, 0, 0, 0}
+    {static_cast<unsigned>(LexemeCodes::NOT_EQUAL), 0, 0, 0},
+    {static_cast<unsigned>(LexemeCodes::LESS_EQUAL), 0, 0, 0},
+    {static_cast<unsigned>(LexemeCodes::GREATER_EQUAL), 0, 0, 0}
 };
 
 short processRelation(char first, char second);
@@ -296,12 +307,13 @@ States EXIT4();
 
 States ERROR1(const unsigned &lineNumber);
 
-constexpr unsigned short numberStates = 27; // Количество состояний
-constexpr unsigned short numberClass = 12; // Количество символьных лексем
+constexpr static unsigned short numberStates = 27; // Количество состояний
+constexpr static unsigned short numberClass = 12; // Количество символьных лексем
 
 using functionPointer = States (*)();
 using TransitionTable = std::array<std::array<functionPointer, numberClass>, numberStates>;
 
+// Вектор альтернатив
 inline std::vector<std::tuple<unsigned long, char, std::optional<unsigned long>, Procedure>> vectorOfAlternatives = {
     {1, 'n', std::nullopt, B1b},
     {2, 'd', std::nullopt, C1b},
@@ -373,6 +385,7 @@ inline std::vector<std::tuple<unsigned long, char, std::optional<unsigned long>,
     {53, 't', std::nullopt, handleVRShiftCommand}
 };
 
+// Начальный вектор
 inline std::map<char, VariantType> initialMap{
     {'a', VariantType{SymbolicTokenClass::ERROR}},
     {'b', VariantType{SymbolicTokenClass::ERROR}},
