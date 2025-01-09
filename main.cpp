@@ -4,7 +4,7 @@
 #include "include/Interpreter.hpp"
 
 int main() {
-    const std::string filePath = "../tests.txt";
+    const std::string filePath = "../examples/myTests";
 
     std::ifstream checkFile(filePath);
     if (!checkFile.is_open()) {

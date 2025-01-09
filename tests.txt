@@ -1,7 +1,0 @@
-push <<1, 2, 3>>
-push <<1, 2, 3>>
-push <<1, 2, 3>>
-vadd
-vadd
-pop a
-end
