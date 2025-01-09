@@ -1,0 +1,36 @@
+push <<1, 2, 3>>
+push <<1, 2, 3>>
+vadd
+write
+push <<1, 2, 3>>
+push <<1, 2, 3>>
+vsub
+write
+push <<1, 2, 3>>
+push <<1, 2, 3>>
+vmul
+write
+push <<1, 2, 3>>
+push <<1, 2, 3>>
+vdiv
+write
+push <<10, 5, 2>>
+push <<2, 5, 10>>
+vmod
+write
+push <<1, 2, 3>>
+push <<1, 2, 3>>
+vdot
+write
+push <<1, 2, 3>>
+push <<1, 2, 3>>
+vconcat
+write
+push <<1, 2, 3>>
+push 2
+vlshift
+write
+push <<1, 2, 3>>
+push 2
+vrshift
+write
