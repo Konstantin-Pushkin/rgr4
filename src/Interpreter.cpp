@@ -143,8 +143,8 @@ void Interpreter::execute() {
                     auto vec = std::get<DArray>(stack.top());
                     stack.pop();
                     stack.emplace(command == "vlshift"
-                                      ? (vec << static_cast<unsigned>(shift))
-                                      : (vec >> static_cast<unsigned>(shift)));
+                                      ? vec << static_cast<unsigned>(shift)
+                                      : vec >> static_cast<unsigned>(shift));
                 } else if (command == "<" || command == ">" || command == "<=" ||
                            command == ">=" || command == "=" || command == "!=") {
                     if (stack.size() < 2) throw std::runtime_error("Недостаточно элементов в стеке");
@@ -213,6 +213,17 @@ void Interpreter::printVariables() const {
 
 Interpreter::Interpreter(const std::vector<std::string> &programLines) : program(programLines), currentLine(0),
                                                                          vectorIndex(0) {}
+
+Interpreter::Interpreter(const std::vector<std::string> &programLines,
+                         const std::vector<std::vector<unsigned>> &vectorsData)
+    : program(programLines), currentLine(0), vectorIndex(0) {
+    for (const auto &vec: vectorsData) {
+        DArray arr;
+        for (const auto val: vec)
+            arr.push_back(static_cast<int>(val));
+        vectors.push_back(arr);
+    }
+}
 
 std::vector<std::string> Interpreter::readFileIntoVector(const std::string &filePath) {
     std::vector<std::string> lines;
