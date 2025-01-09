@@ -14,11 +14,15 @@ class Interpreter {
     std::stack<std::variant<int, DArray>> stack;
     std::map<std::string, std::variant<int, DArray>> variables;
     std::vector<std::string> program;
+    std::vector<DArray> vectors;
     size_t currentLine;
     size_t vectorIndex;
 
 public:
     explicit Interpreter(const std::vector<std::string> &programLines);
+
+    explicit Interpreter(const std::vector<std::string> &programLines,
+                         const std::vector<std::vector<unsigned>> &vectorsData);
 
     void execute();
 
