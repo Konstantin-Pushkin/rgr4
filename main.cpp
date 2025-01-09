@@ -5,26 +5,27 @@
 
 int main() {
     const std::string filePath = "../tests.txt";
-    std::vector<std::string> program = Interpreter::readFileIntoVector(filePath);
 
     std::ifstream checkFile(filePath);
     if (!checkFile.is_open()) {
         std::cerr << "Не удалось открыть файл tests" << filePath << std::endl;
+
         return EXIT_FAILURE;
     }
 
     checkFile.close();
 
+    std::vector<std::string> program = Interpreter::readFileIntoVector(filePath);
+
     try {
-        Interpreter interpreter({});
         parse(filePath);
     } catch (const std::exception &e) {
-        std::cerr << "Ошибка при разборе файла: " << e.what() << std::endl;
+        std::cerr << "Ошибка при лексическом анализе: " << e.what() << std::endl;
 
         return EXIT_FAILURE;
     }
 
-    std::cout << std::endl << "Результаты лексического анализа:\n";
+    std::cout << "\nРезультаты лексического анализа:\n";
     std::cout << "Найдено лексем: " << lexemes.size() << '\n';
     for (const auto &[lexemeClass, value, lineNumber]: lexemes) {
         std::cout << "Класс лексемы: " << static_cast<int>(lexemeClass)
@@ -55,7 +56,7 @@ int main() {
         std::cout << "Вектора не найдены" << std::endl;
     else {
         std::cout << "Найдено векторов: " << vectors.size() << '\n';
-        for (auto &vector: vectors) {
+        for (const auto &vector: vectors) {
             std::cout << "<<";
             for (size_t j = 0; j < vector.size(); ++j) {
                 std::cout << vector[j];
@@ -67,15 +68,15 @@ int main() {
     }
 
     try {
-        Interpreter interpreter(program);
         std::cout << std::endl << "Запуск программы:\n";
+        Interpreter interpreter(program, vectors);
         interpreter.execute();
+
         std::cout << "\nСостояние после выполнения:\n";
         interpreter.printStack();
         interpreter.printVariables();
     } catch (const std::exception &e) {
-        std::cerr << "Ошибка при выполнении интерпретации: " << e.what() << std::endl;
-
+        std::cerr << "Ошибка при интерпретации: " << e.what() << std::endl;
         return EXIT_FAILURE;
     }
 
