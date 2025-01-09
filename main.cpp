@@ -1,6 +1,7 @@
+#include <iostream>
+
 #include "include/LexicalAnalyzer.hpp"
 #include "include/Interpreter.hpp"
-#include "include/DArray.hpp"
 
 int main() {
     const std::string filePath = "../tests.txt";
