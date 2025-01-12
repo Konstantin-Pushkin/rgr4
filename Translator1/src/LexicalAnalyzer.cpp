@@ -1,7 +1,7 @@
 #include <iostream>
 #include <algorithm>
 
-#include "../include/LexicalAnalyzer.hpp"
+#include "LexicalAnalyzer.hpp"
 
 std::map<std::string, unsigned> nameTable;
 std::ifstream file;
