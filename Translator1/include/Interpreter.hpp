@@ -7,8 +7,7 @@
 #include <sstream>
 #include <ranges>
 
-#include "LexicalAnalyzer.hpp"
-#include "DArray.hpp"
+#include "../../DArray/include/DArray.hpp"
 
 class Interpreter {
     std::stack<std::variant<int, DArray>> stack;
