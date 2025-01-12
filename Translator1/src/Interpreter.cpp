@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 
 #include "../include/Interpreter.hpp"
 
@@ -219,7 +220,7 @@ Interpreter::Interpreter(const std::vector<std::string> &programLines,
     : program(programLines), currentLine(0), vectorIndex(0) {
     for (const auto &vec: vectorsData) {
         DArray arr;
-        for (const auto val: vec)
+        for (const auto &val: vec)
             arr.push_back(static_cast<int>(val));
         vectors.push_back(arr);
     }
