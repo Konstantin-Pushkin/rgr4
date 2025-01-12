@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.29)
 project(rgr4)
 
 #set(CMAKE_CXX_COMPILER clang++)
+# указать свой к компилятору
 set(CMAKE_CXX_COMPILER "/usr/bin/clang++" CACHE STRING "C++ compiler" FORCE)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
