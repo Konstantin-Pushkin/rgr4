@@ -1,14 +1,14 @@
 #include <iostream>
 
-#include "include/LexicalAnalyzer.hpp"
-#include "include/Interpreter.hpp"
+#include "Translator1/include/LexicalAnalyzer.hpp"
+#include "Translator1/include/Interpreter.hpp"
 
 int main() {
-    const std::string filePath = "../examples/myTests";
+    const std::string filePath = "../Translator1/examples/input1";
 
     std::ifstream checkFile(filePath);
     if (!checkFile.is_open()) {
-        std::cerr << "Не удалось открыть файл tests" << filePath << std::endl;
+        std::cerr << "Не удалось открыть файл tests: " << filePath << std::endl;
 
         return EXIT_FAILURE;
     }
