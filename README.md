@@ -2,7 +2,7 @@
 
 - Клонируем проект в виде zip-архива на устройство:
 ````markdown
-https://github.com/Konstantin-Pushkin/rgr4.git
+git clone https://github.com/Konstantin-Pushkin/rgr4.git
 ````
 
 - В директории rgr4-master создать директорию и назвать ее, например, build. На Ubuntu и MacOS делается одной командой:
